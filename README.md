@@ -156,5 +156,5 @@ Not by default. This starter is optimized for fast operator-led throughput with 
 - optional Linear API verification for live queue checks
 - richer bootstrap templates for language-specific repos
 - example repos showing issue planning and worker review
-- public release with `MIT` after the private preview is reviewed
+- public release after the private preview is reviewed (MIT license already applied)
 - possible future `llms.txt` and public docs refinements for broader discoverability

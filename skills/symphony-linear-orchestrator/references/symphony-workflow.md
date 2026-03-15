@@ -25,7 +25,7 @@ Use a defensive `after_create` hook instead of assuming `git clone ... .` will a
 rm -rf ./* ./.[!.]* 2>/dev/null || true
 git clone --depth 1 <clone-url> . || {
   git clone --depth 1 <clone-url> repo
-  shopt -s dotglob && mv repo/* repo/.git . 2>/dev/null
+  bash -c 'shopt -s dotglob && mv repo/* repo/.git .' 2>/dev/null
   rm -rf repo
 }
 ```
