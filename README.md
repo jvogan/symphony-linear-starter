@@ -158,3 +158,5 @@ Not by default. This starter is optimized for fast operator-led throughput with 
 - example repos showing issue planning and worker review
 - public release after the private preview is reviewed (MIT license already applied)
 - possible future `llms.txt` and public docs refinements for broader discoverability
+
+The default concurrency, workflow shape, and references are a starting point. Adjust `max_concurrent_agents`, add custom recovery steps, extend the issue contract, or swap in different worker models as your team and repos demand. Contributions and feedback are welcome via GitHub issues.
