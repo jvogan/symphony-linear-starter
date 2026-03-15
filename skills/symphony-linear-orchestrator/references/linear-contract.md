@@ -62,3 +62,4 @@ complexity: medium
 - Put validation commands in the issue body, not only in chat.
 - Keep `Touched Areas` specific enough to support parallel work without overlap.
 - Design dependencies so the orchestrator can keep the queue moving instead of waiting on one giant ticket.
+- When the same issue-shaping mistake repeats, update `LINEAR_ISSUE_TEMPLATE.md` after the wave instead of fixing it one ticket at a time forever.

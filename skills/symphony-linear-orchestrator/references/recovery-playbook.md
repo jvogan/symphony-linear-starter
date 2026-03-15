@@ -66,3 +66,10 @@ Operator action:
 - confirm the issue body `Dependencies` section matches the actual blocker graph
 - only activate the next wave when upstream work is really ready
 
+## After any incident
+
+Operator action:
+
+- add a short entry to `.orchestration/LEARNINGS.md` with the signal, root cause, and fix
+- update `.orchestration/RUNBOOK.md` if the same recovery step should happen again
+- promote stable lessons into `AGENTS.md`, the workflow, or the issue template

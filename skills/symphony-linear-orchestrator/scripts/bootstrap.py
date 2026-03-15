@@ -54,6 +54,8 @@ def main() -> int:
 
     outputs = {
         orchestration_dir / f"{args.workflow_name}.WORKFLOW.md": TEMPLATE_DIR / "workflow.WORKFLOW.md.tmpl",
+        orchestration_dir / "RUNBOOK.md": TEMPLATE_DIR / "runbook.md.tmpl",
+        orchestration_dir / "LEARNINGS.md": TEMPLATE_DIR / "learnings.md.tmpl",
         orchestration_dir / f"{args.workflow_name}.BRIEF.md": TEMPLATE_DIR / "program-brief.md.tmpl",
         orchestration_dir / "LINEAR_ISSUE_TEMPLATE.md": TEMPLATE_DIR / "linear-issue.md.tmpl",
         orchestration_dir / "AGENTS_ADDITIONS.md": TEMPLATE_DIR / "agents-additions.md.tmpl",
@@ -75,4 +77,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

@@ -83,6 +83,18 @@ def main() -> int:
     else:
         results.append(make_result("queued_work_scaffold", "warn", "cannot confirm queue readiness because LINEAR_ISSUE_TEMPLATE.md is missing"))
 
+    runbook = target_repo / ".orchestration" / "RUNBOOK.md"
+    if runbook.exists():
+        results.append(make_result("runbook", "pass", "operator runbook scaffold exists"))
+    else:
+        results.append(make_result("runbook", "warn", "missing RUNBOOK.md; the repo has no durable operator playbook yet"))
+
+    learnings = target_repo / ".orchestration" / "LEARNINGS.md"
+    if learnings.exists():
+        results.append(make_result("learnings", "pass", "learnings log scaffold exists"))
+    else:
+        results.append(make_result("learnings", "warn", "missing LEARNINGS.md; the repo has no built-in improvement loop yet"))
+
     failures = [result for result in results if result["status"] == "fail"]
     warnings = [result for result in results if result["status"] == "warn"]
     exit_code = 1 if failures else 0
@@ -99,4 +111,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

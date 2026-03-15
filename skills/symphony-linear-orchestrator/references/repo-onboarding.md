@@ -21,6 +21,7 @@ Put repo-specific instructions in the target repo:
 - secrets handling rules
 - service boundaries
 - high-risk files and stateful operations
+- stable learnings that workers should know before they start
 
 ## What stays in this starter skill
 
@@ -30,6 +31,7 @@ Keep cross-repo operating guidance here:
 - how issue bodies should be structured
 - how to bootstrap a workflow
 - common recovery tactics
+- how to run the self-improvement loop
 
 ## Recommended target repo artifact layout
 
@@ -38,6 +40,8 @@ After bootstrapping, the target repo should gain:
 ```text
 .orchestration/
   <workflow-name>.WORKFLOW.md
+  RUNBOOK.md
+  LEARNINGS.md
   <workflow-name>.BRIEF.md
   LINEAR_ISSUE_TEMPLATE.md
   AGENTS_ADDITIONS.md
@@ -45,3 +49,6 @@ After bootstrapping, the target repo should gain:
 
 The operator should review those files, then merge the needed parts into the repo's durable guidance.
 
+## Promotion loop
+
+Use `.orchestration/LEARNINGS.md` as the short-term journal for run outcomes. Promote stable repo-specific rules into `AGENTS.md`, repeated operator steps into `RUNBOOK.md`, and shared cross-repo patterns back into this starter skill.

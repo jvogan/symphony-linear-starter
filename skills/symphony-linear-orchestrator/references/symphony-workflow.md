@@ -39,8 +39,11 @@ This starter assumes manual orchestrator review as the default closeout path:
 - worker moves the issue to `In Review`
 - orchestrator reviews and integrates the output
 - orchestrator decides whether to move the issue to `Done`
+- orchestrator records any reusable learning in `LEARNINGS.md` and updates `RUNBOOK.md` or workflow defaults if the same pattern should be repeated
 
 In practice, fast runs depend on tight integration loops. Review active workspaces every few minutes, integrate validated output as soon as it is usable, and move completed issues forward quickly so blocked work can start.
+
+Fast teams also close the loop after each wave. If a retry exposed a clone problem, a ticket was too large, or review kept catching the same gap, update the runbook or workflow immediately instead of carrying the same operational debt into the next run.
 
 Do not default to automatic PR creation, snapshot promotion, or machine-specific background hooks in the first version of a public starter.
 

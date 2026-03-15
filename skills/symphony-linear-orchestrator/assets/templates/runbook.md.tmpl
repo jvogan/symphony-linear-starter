@@ -1,0 +1,31 @@
+# __REPO_NAME__ Runbook
+
+## Purpose
+
+This runbook captures the current operator procedure for `__WORKFLOW_NAME__`.
+
+## Before a run
+
+- confirm `doctor.py` and `preflight.py` are clean enough to start
+- confirm `AGENTS.md` reflects the current repo reality
+- confirm the first execution wave fills worker slots without file overlap
+
+## During a run
+
+- watch `In Review`, blockers, and retries
+- integrate validated worker output quickly
+- record repeated issues or useful tactics in `LEARNINGS.md`
+
+## After a run
+
+- update this runbook with any operator step that should repeat next time
+- promote stable learnings into `AGENTS.md`, the workflow, or the issue template
+- remove stale notes that no longer reflect reality
+
+## Repo-specific checks
+
+- add branch rules, release constraints, dashboards, or review cadence here
+
+## Known sharp edges
+
+- add recurring failure modes and how to spot them here

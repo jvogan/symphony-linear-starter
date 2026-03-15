@@ -1,10 +1,10 @@
 # Symphony + Linear Starter
 
-> A skill and toolkit for running Codex or Claude Code as the orchestrator over Symphony workers with Linear-managed execution.
+> A skill and toolkit for running self-improving AI agent teams with Codex or Claude Code as the orchestrator over Symphony workers and Linear-managed execution.
 
 ## What this is
 
-A starter skill for multi-agent software delivery orchestration. The orchestrator (human or coding agent) plans work, dispatches it to Symphony workers via Linear issues, and reviews the output. Symphony handles scheduling and isolation. Linear holds the issue state.
+A starter skill for self-improving multi-agent software delivery orchestration. The orchestrator (human or coding agent) plans work, dispatches it to Symphony workers via Linear issues, reviews the output, and records durable learnings. Symphony handles scheduling and isolation. Linear holds the issue state.
 
 ## Key concepts
 
@@ -12,26 +12,27 @@ A starter skill for multi-agent software delivery orchestration. The orchestrato
 - **Symphony**: dispatches and isolates workers against a Linear-backed queue
 - **Workers**: execute one bounded issue at a time, validate, and move to In Review
 - **Linear**: source of truth for issue planning, dependencies, and state transitions
+- **Runbook + Learnings**: the self-improving loop that turns each wave into better defaults
 
 ## Default workflow
 
-Plan → Dispatch → Execute → Review → Done
+Plan → Dispatch → Execute → Review → Improve → Done
 
-Default concurrency: 3 workers. Review gate: In Review. No auto-merge.
+Default concurrency: 3 workers. Review gate: In Review. Self-improvement loop: RUNBOOK.md + LEARNINGS.md. No auto-merge.
 
 ## Repo structure
 
 - `skills/symphony-linear-orchestrator/SKILL.md` — main skill definition
-- `skills/symphony-linear-orchestrator/references/` — operating model, issue contract, workflow spec, onboarding guide, recovery playbook, example prompts
+- `skills/symphony-linear-orchestrator/references/` — operating model, issue contract, workflow spec, onboarding guide, recovery playbook, self-improvement loop, example prompts
 - `skills/symphony-linear-orchestrator/scripts/doctor.py` — check local toolchain readiness
-- `skills/symphony-linear-orchestrator/scripts/bootstrap.py` — render workflow and issue templates into a target repo
+- `skills/symphony-linear-orchestrator/scripts/bootstrap.py` — render workflow, runbook, learnings, and issue templates into a target repo
 - `skills/symphony-linear-orchestrator/scripts/preflight.py` — validate a repo is ready for Symphony
-- `skills/symphony-linear-orchestrator/assets/templates/` — workflow, issue, and guidance templates
+- `skills/symphony-linear-orchestrator/assets/templates/` — workflow, runbook, learnings, issue, and guidance templates
 - `skills/symphony-linear-orchestrator/agents/openai.yaml` — Codex agent configuration
 
 ## Usage
 
-Install the skill into Codex or reference the SKILL.md from Claude Code. Run doctor.py to check readiness, bootstrap.py to scaffold a target repo, and preflight.py to validate before starting Symphony.
+Install the skill into Codex or reference the SKILL.md from Claude Code. Run doctor.py to check readiness, bootstrap.py to scaffold a target repo, and preflight.py to validate before starting Symphony. After each wave, update the generated runbook and learnings log, then promote stable lessons into AGENTS.md and workflow defaults.
 
 ## License
 

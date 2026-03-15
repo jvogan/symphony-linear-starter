@@ -19,6 +19,17 @@ Symphony is optimized for dispatch and isolation. It should not be treated as th
 
 Without an explicit orchestrator, the system becomes fragile. Large tickets, weak issue bodies, and silent validation drift all become more likely.
 
+## Self-improvement loop
+
+The orchestrator is also the improvement layer. After each execution wave, it should:
+
+- capture fresh observations in `.orchestration/LEARNINGS.md`
+- update `.orchestration/RUNBOOK.md` with repeatable operator steps
+- promote stable worker-facing rules into `AGENTS.md`
+- tighten the issue template and workflow defaults when the same problems recur
+
+That loop is what makes the system self-improving instead of merely repeatable.
+
 ## Default state model
 
 Use this state model in Linear:
@@ -39,3 +50,4 @@ Use this state model in Linear:
 - Prefer explicit acceptance criteria over vague goals.
 - Review everything in `In Review` before trusting the loop.
 - Integrate validated output quickly. Throughput depends on the orchestrator moving the dependency chain, not waiting for formal polish.
+- Turn repeated lessons into better defaults. The fastest teams do not just review output; they reduce the odds of the same mistake on the next wave.
