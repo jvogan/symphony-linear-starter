@@ -22,6 +22,8 @@ mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
 cp -R skills/symphony-linear-orchestrator "${CODEX_HOME:-$HOME/.codex}/skills/"
 ```
 
+Restart Codex after installing so the skill is discoverable.
+
 ### Claude Code
 
 Point Claude Code at the skill folder as shared instructions, or copy the skill into your project:
@@ -57,7 +59,7 @@ Run all three from `skills/symphony-linear-orchestrator/scripts/`. The skill's [
 | `skills/.../scripts/` | `doctor.py`, `bootstrap.py`, `preflight.py` |
 | `skills/.../assets/templates/` | Workflow, issue, guidance, and brief templates |
 
-The defaults are a starting point. Adjust `max_concurrent_agents`, extend the issue contract, add recovery steps, or swap worker models to fit your team and repos. Contributions and feedback are welcome via [GitHub issues](../../issues).
+The defaults are a starting point. Adjust `max_concurrent_agents`, extend the issue contract, add recovery steps, or swap worker models to fit your team and repos. Contributions and feedback are welcome via [GitHub issues](https://github.com/jvogan/symphony-linear-starter/issues).
 
 ## License
 
