@@ -151,11 +151,6 @@ Not by default. This starter is optimized for fast operator-led throughput with 
 - The social preview image is included locally, but GitHub social preview upload is still a manual settings step.
 - Parallel runs are most effective when issue bodies are specific and the orchestrator reviews workspaces aggressively.
 
-## Roadmap
-
-- optional Linear API verification for live queue checks
-- richer bootstrap templates for language-specific repos
-- example repos showing issue planning and worker review
-- possible future `llms.txt` and public docs refinements for broader discoverability
+## Customization
 
 The default concurrency, workflow shape, and references are a starting point. Adjust `max_concurrent_agents`, add custom recovery steps, extend the issue contract, or swap in different worker models as your team and repos demand. Contributions and feedback are welcome via GitHub issues.
