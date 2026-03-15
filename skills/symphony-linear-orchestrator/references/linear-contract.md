@@ -57,7 +57,8 @@ complexity: medium
 ## Planning guidance
 
 - Keep most work in `Backlog`.
-- Only activate the first wave.
+- Only activate the first wave at the beginning, but size that wave to fill your available worker slots.
 - Split large or ambiguous work before dispatch.
 - Put validation commands in the issue body, not only in chat.
-
+- Keep `Touched Areas` specific enough to support parallel work without overlap.
+- Design dependencies so the orchestrator can keep the queue moving instead of waiting on one giant ticket.

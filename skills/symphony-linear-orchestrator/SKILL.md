@@ -1,6 +1,6 @@
 ---
 name: symphony-linear-orchestrator
-description: Bootstrap strict Symphony + Linear orchestration for a software repository. Use when Codex needs to inspect a repo, review or generate repo-local guidance, shape Linear issues, render a Symphony workflow, run conservative first-wave startup, or handle orchestrator-led review and recovery for worker output.
+description: Bootstrap Symphony + Linear orchestration for a software repository. Use when Codex needs to inspect a repo, review or generate repo-local guidance, shape Linear issues, render a Symphony workflow, launch a high-leverage first execution wave, or handle orchestrator-led review, recovery, and throughput optimization for worker output.
 ---
 
 # Symphony + Linear Orchestrator
@@ -22,16 +22,17 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 4. Merge the generated `AGENTS_ADDITIONS.md` content into the target repo manually. Do not let the script edit `AGENTS.md` for you.
 5. Create Linear issues using the contract in `references/linear-contract.md`.
 6. Run `scripts/preflight.py` before starting any real run.
-7. Start Symphony with `max_concurrent_agents: 1` for the first run.
+7. Start Symphony with `max_concurrent_agents: 3` by default when the repo is reasonably clean and the first wave is bounded. Drop to `1` only for fragile or unproven repos.
 8. Treat `In Review` as the orchestrator gate. Review worker output, integrate the result, then move the issue to `Done`.
 
 ## Safety defaults
 
 - Keep most work in `Backlog`.
-- Activate only the first execution wave.
+- Activate only the first execution wave, but size that wave to fill your worker slots.
 - Do not auto-merge.
 - Do not default to snapshot promotion or automatic PR creation.
 - Do not introduce machine-specific background services into the target repo.
+- Integrate validated worker output quickly so the dependency chain keeps moving.
 
 ## Reference map
 
@@ -41,4 +42,3 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 - Read `references/repo-onboarding.md` when reviewing the target repo's `AGENTS.md` and local guidance.
 - Read `references/recovery-playbook.md` when a worker stalls, clones the wrong branch, or drifts from validation.
 - Read `references/example-prompts.md` when you want prompt patterns for Codex or Claude Code.
-

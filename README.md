@@ -4,9 +4,9 @@
 
 ## What this repo is
 
-`symphony-linear-starter` is a starter skill and operator toolkit for running Codex or Claude Code as the orchestrator over Symphony workers with Linear-managed execution. It is designed for strict Symphony + Linear workflows where a human or interactive agent does the planning, review, and recovery work while Symphony dispatches bounded worker tasks.
+`symphony-linear-starter` is a starter skill and operator toolkit for running Codex or Claude Code as the orchestrator over Symphony workers with Linear-managed execution. It is designed for practical Symphony + Linear workflows where a human or interactive agent does the planning, review, and recovery work while Symphony dispatches bounded worker tasks.
 
-This repo focuses on practical multi-agent orchestration for software delivery. It gives an operator a reusable skill, issue planning contract, workflow templates, and lightweight validation scripts without copying a private local setup.
+This repo focuses on practical multi-agent orchestration for software delivery. It gives an operator a reusable skill, issue planning contract, workflow templates, and lightweight validation scripts without copying a private local setup. The goal is not just safe setup; the goal is to get a real AI team moving quickly with a clear operator loop.
 
 ## Who it is for
 
@@ -15,7 +15,7 @@ This repo is for developers, technical founders, engineering leads, and AI-nativ
 - Symphony to run workers against a real codebase
 - Linear to hold the execution plan, issue planning, and review state
 - Codex or Claude Code to act as the orchestrator
-- a conservative first-run workflow with clear review gates
+- a fast first run with clear review gates and real parallel execution
 
 It is not for teams looking for a generic agent framework with many trackers or many worker runtimes. The v1 scope is Symphony, Linear, Codex, and Claude Code.
 
@@ -45,9 +45,9 @@ This separation matters. Symphony is the scheduler. Linear is the source of work
 
 The starter is opinionated:
 
-- strict Symphony + Linear workflow
+- focused Symphony + Linear workflow
 - orchestrator review gate in `In Review`
-- first-run default of `max_concurrent_agents: 1`
+- default parallelism of `max_concurrent_agents: 3`
 - no auto-merge
 - no local snapshot mode
 - no machine-specific background services
@@ -97,7 +97,7 @@ Recommended usage patterns:
 5. Re-run the bootstrap command with `--write` to generate files.
 6. Create bounded Linear issues using the bundled contract.
 7. Run `python3 skills/symphony-linear-orchestrator/scripts/preflight.py --target-repo /path/to/repo --workflow /path/to/workflow --json`.
-8. Start Symphony with one worker.
+8. Start Symphony with three workers by default. Drop to one only if the repo is fragile, the test baseline is unclear, or the ticket graph is still rough.
 9. Review worker output in `In Review` before marking anything `Done`.
 
 ## Example prompts
@@ -106,7 +106,7 @@ Recommended usage patterns:
 - `Use $symphony-linear-orchestrator to onboard this project for multi-agent orchestration with Symphony and Linear.`
 - `Use $symphony-linear-orchestrator to turn this feature request into a first execution wave with issue planning and validation commands.`
 - `Use $symphony-linear-orchestrator to review this repository's AGENTS.md and tell me what is missing before I hand work to Symphony workers.`
-- `Use $symphony-linear-orchestrator to generate a conservative first-run workflow with an In Review gate.`
+- `Use $symphony-linear-orchestrator to generate a three-worker Symphony workflow with an In Review gate.`
 - `Use $symphony-linear-orchestrator to draft the Linear issue bodies and dependencies for this milestone.`
 - `Use $symphony-linear-orchestrator to run preflight checks for this repository and explain any blockers.`
 - `Use $symphony-linear-orchestrator to recover a stalled Symphony run and recommend the next operator action.`
@@ -114,11 +114,12 @@ Recommended usage patterns:
 ## Safety defaults
 
 - Keep most issues in `Backlog`.
-- Activate only the first wave.
+- Activate only the first wave, but size it to fill three worker slots.
 - Require explicit validation commands in each issue.
 - Use `In Review` as the orchestrator review gate.
 - Keep workers bounded to the issue instead of allowing broad cleanup.
-- Prefer one worker on the first real run, even if the repo looks healthy.
+- Integrate validated work quickly and move issues forward so the dependency chain stays hot.
+- Reduce concurrency to one only for unproven repos or unstable baselines.
 
 ## FAQ
 
@@ -136,11 +137,11 @@ No. It gives you the contract and templates for issue planning. The operator sti
 
 ### Does this repo support trackers other than Linear?
 
-No. The v1 contract is strict Symphony + Linear.
+No. The v1 contract is focused Symphony + Linear.
 
 ### Does this repo support snapshot promotion or automatic PR handoff?
 
-Not by default. This starter is intentionally conservative and review-first.
+Not by default. This starter is optimized for fast operator-led throughput with an explicit review gate.
 
 ## Current limitations
 
@@ -148,6 +149,7 @@ Not by default. This starter is intentionally conservative and review-first.
 - The starter assumes you already have a working Symphony runtime.
 - Claude Code can use the materials, but Codex has the better first-class skill installation model.
 - The social preview image is included locally, but GitHub social preview upload is still a manual settings step.
+- Parallel runs are most effective when issue bodies are specific and the orchestrator reviews workspaces aggressively.
 
 ## Roadmap
 

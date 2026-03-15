@@ -33,8 +33,9 @@ Use this state model in Linear:
 
 ## First-run posture
 
-- Start with one worker.
-- Keep the first wave small.
+- Start with three workers when the repo is reasonably clean and the first tickets are well bounded.
+- Drop to one worker only for fragile repos, unclear baselines, or oversized tickets.
+- Keep the first wave small enough to preserve operator control, but large enough to fill your active worker slots.
 - Prefer explicit acceptance criteria over vague goals.
 - Review everything in `In Review` before trusting the loop.
-
+- Integrate validated output quickly. Throughput depends on the orchestrator moving the dependency chain, not waiting for formal polish.

@@ -10,10 +10,12 @@ A useful Symphony workflow has two parts:
 ## Recommended defaults
 
 - Pin the worker model in the workflow.
-- Start with `max_concurrent_agents: 1`.
+- Start with `max_concurrent_agents: 3` when the repo has a clean baseline and the first wave is bounded.
+- Reduce to `1` for unproven repos, dirty local work, or unclear ticket boundaries.
 - Use `workspace-write` or the narrowest sandbox that still lets workers do the job.
 - Require the worker to read repo guidance before changing files.
 - Require a final status comment before the worker changes issue state.
+- Plan the first wave to keep all active slots busy without creating overlap.
 
 ## Robust clone pattern
 
@@ -38,9 +40,10 @@ This starter assumes manual orchestrator review as the default closeout path:
 - orchestrator reviews and integrates the output
 - orchestrator decides whether to move the issue to `Done`
 
+In practice, fast runs depend on tight integration loops. Review active workspaces every few minutes, integrate validated output as soon as it is usable, and move completed issues forward quickly so blocked work can start.
+
 Do not default to automatic PR creation, snapshot promotion, or machine-specific background hooks in the first version of a public starter.
 
 ## Pinned model guidance
 
 Pick a model deliberately and pin it in the workflow. Do not leave worker model selection implicit. The starter templates assume a strong coding model with medium reasoning effort, but you should adjust the pinned model to match the actual repo and cost tolerance.
-
