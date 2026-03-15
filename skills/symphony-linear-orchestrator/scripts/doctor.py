@@ -81,6 +81,7 @@ def main() -> int:
     args = parser.parse_args()
 
     checks = [
+        command_check("bash"),
         command_check("git"),
         command_check("gh"),
         command_check("codex"),
