@@ -21,7 +21,7 @@ hooks:
     rm -rf ./* ./.[!.]* 2>/dev/null || true
     git clone --depth 1 "__CLONE_URL__" . || {
       git clone --depth 1 "__CLONE_URL__" repo
-      shopt -s dotglob && mv repo/* repo/.git . 2>/dev/null
+      bash -c 'shopt -s dotglob && mv repo/* repo/.git .' 2>/dev/null
       rm -rf repo
     }
 

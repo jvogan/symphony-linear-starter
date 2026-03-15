@@ -56,17 +56,21 @@ def main() -> int:
         workflow_text = ""
         results.append(make_result("workflow_exists", "fail", "workflow file is missing"))
 
-    unresolved = [pattern for pattern in PLACEHOLDER_PATTERNS if re.search(pattern, workflow_text)]
-    if unresolved:
-        results.append(make_result("workflow_placeholders", "fail", f"unresolved placeholders: {', '.join(unresolved)}"))
-    else:
-        results.append(make_result("workflow_placeholders", "pass", "core placeholders resolved"))
+    if workflow_text:
+        unresolved = [pattern for pattern in PLACEHOLDER_PATTERNS if re.search(pattern, workflow_text)]
+        if unresolved:
+            results.append(make_result("workflow_placeholders", "fail", f"unresolved placeholders: {', '.join(unresolved)}"))
+        else:
+            results.append(make_result("workflow_placeholders", "pass", "core placeholders resolved"))
 
-    missing_states = [state for state in REQUIRED_STATES if state not in workflow_text]
-    if missing_states:
-        results.append(make_result("state_model", "fail", f"missing states: {', '.join(missing_states)}"))
+        missing_states = [state for state in REQUIRED_STATES if state not in workflow_text]
+        if missing_states:
+            results.append(make_result("state_model", "fail", f"missing states: {', '.join(missing_states)}"))
+        else:
+            results.append(make_result("state_model", "pass", "required Linear state model present"))
     else:
-        results.append(make_result("state_model", "pass", "required Linear state model present"))
+        results.append(make_result("workflow_placeholders", "skip", "skipped because workflow file is missing"))
+        results.append(make_result("state_model", "skip", "skipped because workflow file is missing"))
 
     if os.environ.get("LINEAR_API_KEY"):
         results.append(make_result("linear_api_key", "pass", "LINEAR_API_KEY is set"))
@@ -81,8 +85,8 @@ def main() -> int:
 
     failures = [result for result in results if result["status"] == "fail"]
     warnings = [result for result in results if result["status"] == "warn"]
-    exit_code = 1 if failures else 2 if warnings else 0
-    payload = {"ok": exit_code == 0, "results": results}
+    exit_code = 1 if failures else 0
+    payload = {"ok": not failures, "warnings": len(warnings), "results": results}
 
     if args.json:
         print(json.dumps(payload, indent=2))

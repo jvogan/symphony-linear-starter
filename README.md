@@ -89,12 +89,12 @@ Recommended usage patterns:
 ## First-run checklist
 
 1. Confirm `git`, `gh`, `codex`, `python3`, Symphony, and `LINEAR_API_KEY` are available.
-2. Run `doctor.py --json`.
-3. Run `bootstrap.py` against the target repo in dry-run mode.
+2. Run `python3 skills/symphony-linear-orchestrator/scripts/doctor.py --json`.
+3. Run `python3 skills/symphony-linear-orchestrator/scripts/bootstrap.py --target-repo /path/to/repo --workflow-name wave1 --clone-url <url> --linear-project-slug <slug>` (dry-run).
 4. Review `.orchestration/AGENTS_ADDITIONS.md` and merge the right parts into the target repo's `AGENTS.md`.
-5. Generate the workflow and issue template with `bootstrap.py --write`.
+5. Re-run the bootstrap command with `--write` to generate files.
 6. Create bounded Linear issues using the bundled contract.
-7. Run `preflight.py --json`.
+7. Run `python3 skills/symphony-linear-orchestrator/scripts/preflight.py --target-repo /path/to/repo --workflow /path/to/workflow --json`.
 8. Start Symphony with one worker.
 9. Review worker output in `In Review` before marking anything `Done`.
 

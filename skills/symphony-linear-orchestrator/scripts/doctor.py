@@ -58,7 +58,7 @@ def github_auth_check() -> dict:
         text=True,
         check=False,
     )
-    output = (result.stdout + "\n" + result.stderr).strip()
+    output = " ".join((result.stdout + " " + result.stderr).split())
     return {
         "name": "github_auth",
         "ok": result.returncode == 0,

@@ -62,9 +62,12 @@ def main() -> int:
     manifest = []
     for destination, template_path in outputs.items():
         content = render(template_path.read_text(), values)
-        manifest.append({"destination": str(destination), "template": str(template_path)})
-        if args.write:
+        entry = {"destination": str(destination), "template": str(template_path)}
+        if not args.write:
+            entry["rendered"] = content
+        else:
             write_file(destination, content, args.force)
+        manifest.append(entry)
 
     print(json.dumps({"write": args.write, "files": manifest}, indent=2))
     return 0
