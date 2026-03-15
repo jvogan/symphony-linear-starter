@@ -1,0 +1,66 @@
+---
+tracker:
+  kind: linear
+  api_key: $LINEAR_API_KEY
+  project_slug: "__LINEAR_PROJECT_SLUG__"
+  active_states:
+    - Todo
+    - In Progress
+  terminal_states:
+    - Done
+    - Closed
+    - Cancelled
+    - Canceled
+    - Duplicate
+
+workspace:
+  root: $SYMPHONY_WORKSPACES_ROOT
+
+hooks:
+  after_create: |
+    rm -rf ./* ./.[!.]* 2>/dev/null || true
+    git clone --depth 1 "__CLONE_URL__" . || {
+      git clone --depth 1 "__CLONE_URL__" repo
+      shopt -s dotglob && mv repo/* repo/.git . 2>/dev/null
+      rm -rf repo
+    }
+
+agent:
+  max_concurrent_agents: 1
+  max_turns: 20
+  auto_stop_when_idle: true
+  idle_grace_checks: 2
+
+codex:
+  command: 'CODEX_HOME="$SYMPHONY_CODEX_HOME" codex --model gpt-5.4 --config shell_environment_policy.inherit=all --config model_reasoning_effort=medium app-server'
+  approval_policy: never
+  thread_sandbox: workspace-write
+---
+
+You are working on Linear issue {{ issue.identifier }}.
+
+Title: {{ issue.title }}
+
+Body:
+{{ issue.description }}
+
+{% if attempt > 1 %}
+This is retry attempt {{ attempt }}. A previous worker did not complete the issue cleanly.
+Read the workspace and Linear comments before continuing, then focus on the remaining work.
+{% endif %}
+
+## Required behavior
+
+- Read the repository `AGENTS.md` chain before making changes.
+- Use repo-local guidance when relevant.
+- Keep changes bounded to the issue.
+- Run the issue validation commands before concluding work.
+- Leave concise status updates and blockers in Linear.
+- Treat `## Acceptance Criteria` as hard gates.
+- Treat `## Validation Commands` as exact commands to run from repo root.
+- Treat `## Touched Areas` as the expected scope. Note any extra files in the final comment.
+- Post a final status comment before changing issue state.
+- Expect most planned work to live in `Backlog` until the orchestrator activates it.
+- Move successful issues to `In Review`, not directly to `Done`.
+- Treat `In Review` as the orchestrator review gate.
+- If you cannot complete the issue, move it back to `Todo` or a blocked state and explain why.

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Symphony + Linear Orchestrator"
+  short_description: "Bootstrap Symphony + Linear orchestration"
+  default_prompt: "Use $symphony-linear-orchestrator to onboard this repo for Symphony + Linear execution."
+
