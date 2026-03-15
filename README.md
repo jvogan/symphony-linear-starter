@@ -1,5 +1,7 @@
 # Symphony + Linear Starter
 
+![Symphony + Linear Orchestration Starter](assets/github/social-preview.png)
+
 ## What this repo is
 
 `symphony-linear-starter` is a starter skill and operator toolkit for running Codex or Claude Code as the orchestrator over Symphony workers with Linear-managed execution. It is designed for strict Symphony + Linear workflows where a human or interactive agent does the planning, review, and recovery work while Symphony dispatches bounded worker tasks.
