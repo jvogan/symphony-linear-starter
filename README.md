@@ -1,8 +1,40 @@
 # Symphony + Linear Starter
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Agent Skill](https://img.shields.io/badge/Agent_Skill-v1.0.0-8A2BE2.svg)](#install)
+
 ![Symphony + Linear Orchestration Starter](assets/github/social-preview.png)
 
-A skill and toolkit for running self-improving AI agent teams: Codex or Claude Code as the orchestrator over Symphony workers with Linear-managed execution. Inspect a repo, plan bounded issues in Linear, dispatch parallel workers through Symphony, review the output through an explicit operator gate, and turn each run into better guidance for the next one.
+A skill and toolkit for running self-improving AI agent teams: Codex or Claude Code as the orchestrator over Symphony workers with Linear-managed execution.
+
+```
+                   ┌─────────────┐
+                   │ Orchestrator │  (Codex or Claude Code)
+                   └──────┬──────┘
+                          │ plans issues, reviews output, promotes learnings
+                          v
+                   ┌─────────────┐
+                   │   Linear    │  issues, state, dependencies
+                   └──────┬──────┘
+                          │ active states feed the queue
+                          v
+                   ┌─────────────┐
+                   │  Symphony   │  dispatch + isolation
+                   └──┬───┬───┬──┘
+                      │   │   │
+                      v   v   v
+                     W1  W2  W3    (3 concurrent workers)
+                      │   │   │
+                      v   v   v
+                   ┌─────────────┐
+                   │  In Review  │  operator gate
+                   └──────┬──────┘
+                          │ orchestrator integrates, then Done
+                          v
+                   ┌─────────────┐
+                   │  Learnings  │  runbook + AGENTS.md get better
+                   └─────────────┘
+```
 
 ## How it works
 
@@ -16,7 +48,13 @@ Default concurrency is three workers. The review gate is `In Review`. The self-i
 
 ## Install
 
-### Codex
+### Skills CLI (recommended)
+
+```bash
+npx skills add jvogan/symphony-linear-starter
+```
+
+### Codex (manual)
 
 ```bash
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
@@ -25,7 +63,7 @@ cp -R skills/symphony-linear-orchestrator "${CODEX_HOME:-$HOME/.codex}/skills/"
 
 Restart Codex after installing so the skill is discoverable.
 
-### Claude Code
+### Claude Code (manual)
 
 Point Claude Code at the skill folder as shared instructions, or copy the skill into your project:
 
@@ -61,7 +99,30 @@ Run all three from `skills/symphony-linear-orchestrator/scripts/`. The skill's [
 | `skills/.../scripts/` | `doctor.py`, `bootstrap.py`, `preflight.py` |
 | `skills/.../assets/templates/` | Workflow, runbook, learnings, issue, guidance, and brief templates |
 
-The defaults are a starting point. Adjust `max_concurrent_agents`, extend the issue contract, add recovery steps, and use the runbook plus learnings loop to build a self-improving orchestration system for your repos. Contributions and feedback are welcome via [GitHub issues](https://github.com/jvogan/symphony-linear-starter/issues).
+## Design defaults
+
+- **Three concurrent workers** as the starting point
+- **`In Review` as the operator gate** — no auto-merge, no auto-Done
+- **Self-improving loop** via RUNBOOK.md + LEARNINGS.md with promotion into durable guidance
+- **Bounded issue contract** with acceptance criteria, validation commands, and touched areas
+- **No snapshot promotion or automatic PR creation** in the default workflow
+- **No machine-specific background services** introduced into the target repo
+
+These defaults are a starting point. Adjust `max_concurrent_agents`, extend the issue contract, add recovery steps, and use the runbook plus learnings loop to build a self-improving orchestration system for your repos.
+
+## Related
+
+- **[symphony-claude-lane](https://github.com/jvogan/symphony-claude-lane)** — Add a specialized Claude Code lane for UI, design, browser-verified, and review work alongside the Codex lane
+
+## Links
+
+- [OpenAI Symphony](https://github.com/openai/symphony) — the orchestrator runtime this skill extends
+- [Linear](https://linear.app) — issue tracker used for planning and state
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — agent runtime (orchestrator or worker)
+- [Codex](https://openai.com/index/codex/) — agent runtime (orchestrator or worker)
+- [Agent Skills spec](https://agentskills.io/specification) — the open standard this skill follows
+
+Contributions and feedback are welcome via [GitHub issues](https://github.com/jvogan/symphony-linear-starter/issues).
 
 ## License
 

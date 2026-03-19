@@ -1,0 +1,21 @@
+{
+  "name": "symphony-linear-starter",
+  "description": "Self-improving starter skill and operator toolkit for running Codex or Claude Code as the orchestrator over Symphony workers with Linear-managed execution.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Jacob Vogan"
+  },
+  "repository": "https://github.com/jvogan/symphony-linear-starter",
+  "license": "MIT",
+  "keywords": [
+    "symphony",
+    "linear",
+    "openai",
+    "codex",
+    "claude-code",
+    "orchestration",
+    "multi-agent",
+    "self-improving",
+    "agent-skill"
+  ]
+}
