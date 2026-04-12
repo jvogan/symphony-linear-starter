@@ -5,46 +5,50 @@
 
 ![Symphony + Linear Orchestration Starter](assets/github/social-preview.png)
 
-A skill and toolkit for running self-improving AI agent teams: Codex or Claude Code as the orchestrator over Symphony workers with Linear-managed execution.
+**Give your AI coding agent the ability to orchestrate a team of autonomous workers.**
+
+This is an installable [agent skill](https://agentskills.io/specification) for [Codex](https://openai.com/index/codex/) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code). It teaches an orchestrator agent how to plan work in [Linear](https://linear.app), dispatch parallel workers through [OpenAI Symphony](https://github.com/openai/symphony), review their output, and feed learnings back into the next wave.
+
+You install the skill, point it at a repo, and your agent gains a complete multi-agent workflow: issue planning, worker dispatch, validation gates, and a self-improving runbook that gets better with every run.
+
+## What each piece does
+
+| Layer | Role |
+|---|---|
+| **Your agent** (Codex or Claude Code) | The orchestrator. Plans issues, reviews output, promotes learnings. |
+| **Linear** | The mission board. Issues, state transitions, dependencies, and acceptance criteria live here. |
+| **Symphony** | The dispatch engine. Schedules workers, manages isolation via git worktrees, enforces concurrency. |
+| **Workers** (1-3 per wave) | Autonomous agents that execute one bounded issue each, validate their work, and move to In Review. |
+| **Runbook + Learnings** | The self-improving loop. Each wave's lessons get promoted into durable guidance for the next. |
 
 ```
-                   ┌─────────────┐
-                   │ Orchestrator │  (Codex or Claude Code)
-                   └──────┬──────┘
-                          │ plans issues, reviews output, promotes learnings
-                          v
-                   ┌─────────────┐
-                   │   Linear    │  issues, state, dependencies
-                   └──────┬──────┘
-                          │ active states feed the queue
-                          v
-                   ┌─────────────┐
-                   │  Symphony   │  dispatch + isolation
-                   └──┬───┬───┬──┘
-                      │   │   │
-                      v   v   v
-                     W1  W2  W3    (scale out after the first safe run)
-                      │   │   │
-                      v   v   v
-                   ┌─────────────┐
-                   │  In Review  │  operator gate
-                   └──────┬──────┘
-                          │ orchestrator integrates, then Done
-                          v
-                   ┌─────────────┐
-                   │  Learnings  │  runbook + AGENTS.md get better
-                   └─────────────┘
+               ┌─────────────┐
+               │ Orchestrator │  (Codex or Claude Code)
+               └──────┬──────┘
+                      │ plans issues, reviews output, promotes learnings
+                      v
+               ┌─────────────┐
+               │   Linear    │  issues, state, dependencies
+               └──────┬──────┘
+                      │ active states feed the queue
+                      v
+               ┌─────────────┐
+               │  Symphony   │  dispatch + isolation
+               └──┬───┬───┬──┘
+                  │   │   │
+                  v   v   v
+                 W1  W2  W3    (scale out after the first safe run)
+                  │   │   │
+                  v   v   v
+               ┌─────────────┐
+               │  In Review  │  operator gate
+               └──────┬──────┘
+                      │ orchestrator integrates, then Done
+                      v
+               ┌─────────────┐
+               │  Learnings  │  runbook + AGENTS.md get better
+               └─────────────┘
 ```
-
-## How it works
-
-1. The orchestrator inspects a repository, updates guidance, and plans issue work in Linear.
-2. Symphony dispatches workers from active Linear states.
-3. Workers complete bounded changes, validate them, and move issues to `In Review`.
-4. The orchestrator reviews worker output, integrates it, and moves issues to `Done`.
-5. The orchestrator updates the repo runbook and learnings log, then promotes stable lessons into durable guidance.
-
-Default first-run concurrency is one worker. Scale out only after preflight, issue shaping, and review loops are working cleanly. The review gate is `In Review`. The self-improving loop is `.orchestration/RUNBOOK.md` plus `.orchestration/LEARNINGS.md`, with stable learnings promoted into `AGENTS.md`, the issue template, and workflow defaults. No auto-merge.
 
 ## Install
 
@@ -73,17 +77,18 @@ skills/symphony-linear-orchestrator/SKILL.md
 
 ## Getting started
 
-The skill includes three scripts to get a repo ready for Symphony:
+The skill includes four scripts to get a repo ready for Symphony:
 
 1. **`doctor.py`** checks that your local toolchain (`git`, `gh`, `bash`, `python3`, Symphony, `LINEAR_API_KEY`) is ready.
 2. **`bootstrap.py`** renders a lane-aware workflow, runbook, learnings log, issue template, and guidance additions into the target repo.
 3. **`issue_schema.py`** renders or normalizes canonical Linear issue bodies so the human markdown and `<!-- symphony:schema -->` block stay aligned.
 4. **`preflight.py`** validates the rendered workflow, guardrails, runbook, learnings scaffold, and repo state before you start a run.
 
-Recommended invocation style:
-
 ```bash
+# 1. Check toolchain
 python3 skills/symphony-linear-orchestrator/scripts/doctor.py --json
+
+# 2. Bootstrap a target repo
 python3 skills/symphony-linear-orchestrator/scripts/bootstrap.py \
   --target-repo /path/to/repo \
   --workflow-name wave1 \
@@ -93,31 +98,56 @@ python3 skills/symphony-linear-orchestrator/scripts/bootstrap.py \
   --required-path README.md \
   --required-path package.json \
   --write
+
+# 3. Validate before starting
 python3 skills/symphony-linear-orchestrator/scripts/preflight.py \
   --target-repo /path/to/repo \
   --workflow /path/to/repo/.orchestration/wave1.WORKFLOW.md \
   --json
 ```
 
-Run the scripts from the repo root that contains `skills/symphony-linear-orchestrator/`. The skill's [SKILL.md](skills/symphony-linear-orchestrator/SKILL.md) and [reference docs](skills/symphony-linear-orchestrator/references/) walk through the full workflow.
+The skill's [SKILL.md](skills/symphony-linear-orchestrator/SKILL.md) and [reference docs](skills/symphony-linear-orchestrator/references/) walk through the full workflow.
+
+## How the workflow runs
+
+1. The orchestrator inspects a repository, updates guidance, and plans issue work in Linear.
+2. Symphony dispatches workers from active Linear states.
+3. Workers complete bounded changes, validate them, and move issues to `In Review`.
+4. The orchestrator reviews worker output, integrates it, and moves issues to `Done`.
+5. The orchestrator updates the repo runbook and learnings log, then promotes stable lessons into durable guidance.
+
+Default first-run concurrency is one worker. Scale out only after preflight, issue shaping, and review loops are working cleanly.
 
 ## Example prompts
 
-- `Use $symphony-linear-orchestrator to onboard this repo for Symphony + Linear execution.`
-- `Use $symphony-linear-orchestrator to turn this feature request into a first execution wave with bounded Linear tickets and conservative first-run guardrails.`
-- `Use $symphony-linear-orchestrator to generate a medium-lane Symphony workflow with an In Review gate and no-progress stop-loss defaults.`
-- `Use $symphony-linear-orchestrator to run preflight checks and explain any blockers.`
-- `Use $symphony-linear-orchestrator to recover a stalled Symphony run and recommend the next operator action.`
-- `Use $symphony-linear-orchestrator to turn the last run into updated runbook steps and durable learnings for the next wave.`
+```
+Use $symphony-linear-orchestrator to onboard this repo for Symphony + Linear execution.
+```
+```
+Use $symphony-linear-orchestrator to turn this feature request into a first execution wave
+with bounded Linear tickets and conservative first-run guardrails.
+```
+```
+Use $symphony-linear-orchestrator to run preflight checks and explain any blockers.
+```
+```
+Use $symphony-linear-orchestrator to recover a stalled Symphony run and recommend
+the next operator action.
+```
+```
+Use $symphony-linear-orchestrator to turn the last run into updated runbook steps
+and durable learnings for the next wave.
+```
 
 ## What's inside
 
-| Directory | Contents |
+| Path | Contents |
 |---|---|
-| `skills/symphony-linear-orchestrator/` | Installable skill, reference docs, scripts, templates, agent config |
+| `skills/symphony-linear-orchestrator/SKILL.md` | Main skill definition |
 | `skills/.../references/` | Operating model, Linear issue contract, workflow spec, onboarding guide, recovery playbook, self-improvement loop, example prompts |
-| `skills/.../scripts/` | `doctor.py`, `bootstrap.py`, `preflight.py` |
+| `skills/.../scripts/` | `doctor.py`, `bootstrap.py`, `issue_schema.py`, `preflight.py` |
 | `skills/.../assets/templates/` | Workflow, runbook, learnings, issue, guidance, and brief templates |
+| `skills/.../agents/openai.yaml` | Codex agent configuration |
 
 ## Design defaults
 
@@ -125,15 +155,12 @@ Run the scripts from the repo root that contains `skills/symphony-linear-orchest
 - **Explicit routing lanes** via `sym:small`, `sym:medium`, `sym:large`, and `sym:content`
 - **`In Review` as the operator gate** — no auto-merge, no auto-Done
 - **Workspace bootstrap assertions** for branch and repo-anchor paths
-- **No-progress guardrails** so obviously stuck runs can be requeued instead of burning tokens indefinitely
-- **Canonical issue rendering** so the human-readable body and `<!-- symphony:schema -->` block stay in sync
+- **No-progress guardrails** so stuck runs get requeued instead of burning tokens
+- **Canonical issue rendering** so the human-readable body and machine-readable schema stay in sync
 - **Self-improving loop** via RUNBOOK.md + LEARNINGS.md with promotion into durable guidance
 - **Bounded issue contract** with acceptance criteria, validation commands, and touched areas
-- **Security/privacy hygiene**: keep secrets, credentials, session cookies, personal data, and raw customer payloads out of issue bodies, workflow files, and learnings docs
-- **No snapshot promotion or automatic PR creation** in the default workflow
-- **No machine-specific background services** introduced into the target repo
-
-These defaults are a starting point. Adjust `max_concurrent_agents`, extend the issue contract, add recovery steps, and use the runbook plus learnings loop to build a self-improving orchestration system for your repos.
+- **Security/privacy hygiene**: secrets, credentials, and personal data stay out of issue bodies and workflow files
+- **No auto-merge, no snapshot promotion, no background services** in the default workflow
 
 ## Related
 
@@ -141,13 +168,13 @@ These defaults are a starting point. Adjust `max_concurrent_agents`, extend the 
 
 ## Links
 
-- [OpenAI Symphony](https://github.com/openai/symphony) — the orchestrator runtime this skill extends
-- [Linear](https://linear.app) — issue tracker used for planning and state
+- [OpenAI Symphony](https://github.com/openai/symphony) — the dispatch and isolation runtime
+- [Linear](https://linear.app) — issue tracker for planning and state
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — agent runtime (orchestrator or worker)
 - [Codex](https://openai.com/index/codex/) — agent runtime (orchestrator or worker)
 - [Agent Skills spec](https://agentskills.io/specification) — the open standard this skill follows
 
-Contributions and feedback are welcome via [GitHub issues](https://github.com/jvogan/symphony-linear-starter/issues).
+Contributions and feedback welcome via [GitHub issues](https://github.com/jvogan/symphony-linear-starter/issues).
 
 ## License
 

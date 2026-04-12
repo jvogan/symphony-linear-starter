@@ -1,38 +1,47 @@
 # Symphony + Linear Starter
 
-> A skill and toolkit for running self-improving AI agent teams with Codex or Claude Code as the orchestrator over Symphony workers and Linear-managed execution.
+> An installable agent skill that gives Codex and Claude Code the ability to orchestrate autonomous AI worker teams using OpenAI Symphony for dispatch and Linear for issue tracking.
 
 ## What this is
 
-A starter skill for self-improving multi-agent software delivery orchestration. The orchestrator (human or coding agent) plans work, dispatches it to Symphony workers via Linear issues, reviews the output, and records durable learnings. Symphony handles scheduling and isolation. Linear holds the issue state.
+A skill you install into an AI coding agent (Codex or Claude Code) to unlock multi-agent orchestration. Once installed, your agent can plan work as Linear issues, dispatch parallel workers through Symphony, review their output at an operator gate, and promote learnings into durable guidance that makes each wave better than the last.
+
+## Who this is for
+
+Developers and operators who want to run autonomous AI agent teams against real codebases. You bring the repo and the Linear project. The skill provides the orchestration protocol: issue contracts, worker dispatch, validation gates, recovery playbooks, and a self-improving runbook loop.
 
 ## Key concepts
 
-- **Orchestrator**: inspects repos, plans issues, reviews worker output, handles recovery
-- **Symphony**: dispatches and isolates workers against a Linear-backed queue
-- **Workers**: execute one bounded issue at a time, validate, and move to In Review
-- **Linear**: source of truth for issue planning, dependencies, and state transitions
-- **Runbook + Learnings**: the self-improving loop that turns each wave into better defaults
+- **Orchestrator**: Your Codex or Claude Code agent. Plans issues, dispatches workers, reviews output, promotes learnings.
+- **Symphony**: OpenAI's open-source runtime for dispatching isolated workers via git worktrees.
+- **Linear**: Issue tracker that holds the plan — issues, state transitions, dependencies, acceptance criteria.
+- **Workers**: Autonomous agents (1-3 per wave) that each execute one bounded issue, validate, and move to In Review.
+- **Self-improving loop**: RUNBOOK.md + LEARNINGS.md capture what worked and what didn't. Stable lessons get promoted into AGENTS.md, the issue template, and workflow defaults.
 
 ## Default workflow
 
 Plan → Dispatch → Execute → Review → Improve → Done
 
-Default concurrency: 3 workers. Review gate: In Review. Self-improvement loop: RUNBOOK.md + LEARNINGS.md. No auto-merge.
+Default first-run concurrency: 1 worker. Review gate: In Review. No auto-merge.
 
 ## Repo structure
 
 - `skills/symphony-linear-orchestrator/SKILL.md` — main skill definition
-- `skills/symphony-linear-orchestrator/references/` — operating model, issue contract, workflow spec, onboarding guide, recovery playbook, self-improvement loop, example prompts
+- `skills/symphony-linear-orchestrator/references/` — operating model, Linear issue contract, workflow spec, onboarding guide, recovery playbook, self-improvement loop, example prompts
 - `skills/symphony-linear-orchestrator/scripts/doctor.py` — check local toolchain readiness
 - `skills/symphony-linear-orchestrator/scripts/bootstrap.py` — render workflow, runbook, learnings, and issue templates into a target repo
+- `skills/symphony-linear-orchestrator/scripts/issue_schema.py` — render or normalize canonical Linear issue bodies
 - `skills/symphony-linear-orchestrator/scripts/preflight.py` — validate a repo is ready for Symphony
-- `skills/symphony-linear-orchestrator/assets/templates/` — workflow, runbook, learnings, issue, and guidance templates
+- `skills/symphony-linear-orchestrator/assets/templates/` — workflow, runbook, learnings, issue, guidance, and brief templates
 - `skills/symphony-linear-orchestrator/agents/openai.yaml` — Codex agent configuration
 
-## Usage
+## Install
 
-Install the skill into Codex or reference the SKILL.md from Claude Code. Run doctor.py to check readiness, bootstrap.py to scaffold a target repo, and preflight.py to validate before starting Symphony. After each wave, update the generated runbook and learnings log, then promote stable lessons into AGENTS.md and workflow defaults.
+```bash
+npx skills add jvogan/symphony-linear-starter
+```
+
+Or copy `skills/symphony-linear-orchestrator/` into your Codex skills directory or reference `SKILL.md` from Claude Code.
 
 ## License
 
