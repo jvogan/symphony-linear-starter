@@ -8,18 +8,22 @@ This runbook captures the current operator procedure for `__WORKFLOW_NAME__`.
 
 - confirm `doctor.py` and `preflight.py` are clean enough to start
 - confirm `AGENTS.md` reflects the current repo reality
+- confirm repo guidance and issue templates describe secret and sensitive-data handling
+- confirm workflow branch assertions and required-path anchors still match the repo
 - confirm the first execution wave fills worker slots without file overlap
 
 ## During a run
 
-- watch `In Review`, blockers, and retries
+- watch `In Review`, blockers, retries, and no-progress suppressions
 - integrate validated worker output quickly
+- redact any secret or sensitive data that leaks into issue bodies, comments, or logs
 - record repeated issues or useful tactics in `LEARNINGS.md`
 
 ## After a run
 
 - update this runbook with any operator step that should repeat next time
 - promote stable learnings into `AGENTS.md`, the workflow, or the issue template
+- clear or revise suppressions only after the ticket or workflow has materially changed
 - remove stale notes that no longer reflect reality
 
 ## Repo-specific checks
@@ -28,4 +32,6 @@ This runbook captures the current operator procedure for `__WORKFLOW_NAME__`.
 
 ## Known sharp edges
 
-- add recurring failure modes and how to spot them here
+- clone or bootstrap failures that produce the wrong workspace shape
+- no-progress runs that should be requeued instead of left burning tokens
+- sensitive data leaking into Linear or `.orchestration/` artifacts

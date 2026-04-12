@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -8,6 +9,32 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 TEMPLATE_DIR = SKILL_DIR / "assets" / "templates"
+
+LANES = {
+    "small": {"label": "sym:small", "model": "gpt-5.4-mini", "reasoning": "medium"},
+    "medium": {"label": "sym:medium", "model": "gpt-5.4-mini", "reasoning": "high"},
+    "large": {"label": "sym:large", "model": "gpt-5.4", "reasoning": "high"},
+    "content": {"label": "sym:content", "model": "gpt-5.4-mini", "reasoning": "medium"},
+}
+
+ANCHOR_CANDIDATES = [
+    "README.md",
+    "package.json",
+    "pnpm-workspace.yaml",
+    "pyproject.toml",
+    "Cargo.toml",
+    "go.mod",
+    "Gemfile",
+    "mix.exs",
+    "pom.xml",
+    "composer.json",
+    "requirements.txt",
+    "src",
+    "app",
+    "lib",
+    "services",
+    "packages",
+]
 
 
 def render(text: str, values: dict[str, str]) -> str:
@@ -24,12 +51,66 @@ def write_file(path: Path, content: str, force: bool) -> None:
     path.write_text(content)
 
 
+def detect_current_branch(target_repo: Path) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(target_repo), "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    branch = result.stdout.strip()
+    if result.returncode != 0 or not branch or branch == "HEAD":
+        return "main"
+    return branch
+
+
+def infer_required_paths(target_repo: Path) -> list[str]:
+    anchors: list[str] = []
+    for candidate in ANCHOR_CANDIDATES:
+        if (target_repo / candidate).exists():
+            anchors.append(candidate)
+        if len(anchors) >= 3:
+            break
+
+    if anchors:
+        return anchors
+
+    for child in sorted(target_repo.iterdir()):
+        if child.name in {".git", ".orchestration"}:
+            continue
+        anchors.append(child.name)
+        break
+    return anchors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render starter orchestration artifacts into a target repo.")
     parser.add_argument("--target-repo", required=True, help="Path to the target repository.")
     parser.add_argument("--workflow-name", required=True, help="Workflow file stem.")
     parser.add_argument("--clone-url", required=True, help="Git clone URL for the target repository.")
     parser.add_argument("--linear-project-slug", required=True, help="Linear project slug ID.")
+    parser.add_argument(
+        "--lane",
+        choices=sorted(LANES.keys()),
+        default="medium",
+        help="Routing lane label plus pinned model/reasoning profile.",
+    )
+    parser.add_argument(
+        "--max-concurrent-agents",
+        type=int,
+        default=1,
+        help="Worker slots for this workflow. Default is conservative for a first run.",
+    )
+    parser.add_argument(
+        "--required-branch",
+        help="Workspace bootstrap branch assertion. Defaults to the target repo's current branch.",
+    )
+    parser.add_argument(
+        "--required-path",
+        action="append",
+        default=[],
+        help="Repo-root anchor path that must exist after workspace setup. Repeat to add more paths.",
+    )
     parser.add_argument("--write", action="store_true", help="Write files instead of dry-running.")
     parser.add_argument("--force", action="store_true", help="Overwrite rendered files if they already exist.")
     args = parser.parse_args()
@@ -43,6 +124,20 @@ def main() -> int:
         print(f"Target path is not a git repository: {target_repo}", file=sys.stderr)
         return 1
 
+    if args.max_concurrent_agents < 1:
+        print("--max-concurrent-agents must be at least 1", file=sys.stderr)
+        return 1
+
+    lane = LANES[args.lane]
+    required_branch = args.required_branch or detect_current_branch(target_repo)
+    required_paths = args.required_path or infer_required_paths(target_repo)
+    if not required_paths:
+        print(
+            "Could not infer any required workspace anchor paths. Pass --required-path explicitly.",
+            file=sys.stderr,
+        )
+        return 1
+
     repo_name = target_repo.name
     orchestration_dir = target_repo / ".orchestration"
     values = {
@@ -50,6 +145,12 @@ def main() -> int:
         "CLONE_URL": args.clone_url,
         "LINEAR_PROJECT_SLUG": args.linear_project_slug,
         "REPO_NAME": repo_name,
+        "ISSUE_LABEL": lane["label"],
+        "MODEL": lane["model"],
+        "REASONING_EFFORT": lane["reasoning"],
+        "MAX_CONCURRENT_AGENTS": str(args.max_concurrent_agents),
+        "REQUIRED_BRANCH": required_branch,
+        "REQUIRED_PATHS_JSON": json.dumps(required_paths),
     }
 
     outputs = {
@@ -71,7 +172,22 @@ def main() -> int:
             write_file(destination, content, args.force)
         manifest.append(entry)
 
-    print(json.dumps({"write": args.write, "files": manifest}, indent=2))
+    print(
+        json.dumps(
+            {
+                "write": args.write,
+                "lane": args.lane,
+                "label": lane["label"],
+                "model": lane["model"],
+                "reasoning": lane["reasoning"],
+                "required_branch": required_branch,
+                "required_paths": required_paths,
+                "max_concurrent_agents": args.max_concurrent_agents,
+                "files": manifest,
+            },
+            indent=2,
+        )
+    )
     return 0
 
 

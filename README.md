@@ -23,7 +23,7 @@ A skill and toolkit for running self-improving AI agent teams: Codex or Claude C
                    └──┬───┬───┬──┘
                       │   │   │
                       v   v   v
-                     W1  W2  W3    (3 concurrent workers)
+                     W1  W2  W3    (scale out after the first safe run)
                       │   │   │
                       v   v   v
                    ┌─────────────┐
@@ -44,7 +44,7 @@ A skill and toolkit for running self-improving AI agent teams: Codex or Claude C
 4. The orchestrator reviews worker output, integrates it, and moves issues to `Done`.
 5. The orchestrator updates the repo runbook and learnings log, then promotes stable lessons into durable guidance.
 
-Default concurrency is three workers. The review gate is `In Review`. The self-improving loop is `.orchestration/RUNBOOK.md` plus `.orchestration/LEARNINGS.md`, with stable learnings promoted into `AGENTS.md`, the issue template, and workflow defaults. No auto-merge.
+Default first-run concurrency is one worker. Scale out only after preflight, issue shaping, and review loops are working cleanly. The review gate is `In Review`. The self-improving loop is `.orchestration/RUNBOOK.md` plus `.orchestration/LEARNINGS.md`, with stable learnings promoted into `AGENTS.md`, the issue template, and workflow defaults. No auto-merge.
 
 ## Install
 
@@ -76,16 +76,36 @@ skills/symphony-linear-orchestrator/SKILL.md
 The skill includes three scripts to get a repo ready for Symphony:
 
 1. **`doctor.py`** checks that your local toolchain (`git`, `gh`, `bash`, `python3`, Symphony, `LINEAR_API_KEY`) is ready.
-2. **`bootstrap.py`** renders a workflow, runbook, learnings log, issue template, and guidance additions into the target repo.
-3. **`preflight.py`** validates the rendered workflow, runbook, learnings scaffold, and repo state before you start a run.
+2. **`bootstrap.py`** renders a lane-aware workflow, runbook, learnings log, issue template, and guidance additions into the target repo.
+3. **`issue_schema.py`** renders or normalizes canonical Linear issue bodies so the human markdown and `<!-- symphony:schema -->` block stay aligned.
+4. **`preflight.py`** validates the rendered workflow, guardrails, runbook, learnings scaffold, and repo state before you start a run.
 
-Run all three from `skills/symphony-linear-orchestrator/scripts/`. The skill's [SKILL.md](skills/symphony-linear-orchestrator/SKILL.md) and [reference docs](skills/symphony-linear-orchestrator/references/) walk through the full workflow.
+Recommended invocation style:
+
+```bash
+python3 skills/symphony-linear-orchestrator/scripts/doctor.py --json
+python3 skills/symphony-linear-orchestrator/scripts/bootstrap.py \
+  --target-repo /path/to/repo \
+  --workflow-name wave1 \
+  --clone-url git@github.com:owner/repo.git \
+  --linear-project-slug proj \
+  --lane medium \
+  --required-path README.md \
+  --required-path package.json \
+  --write
+python3 skills/symphony-linear-orchestrator/scripts/preflight.py \
+  --target-repo /path/to/repo \
+  --workflow /path/to/repo/.orchestration/wave1.WORKFLOW.md \
+  --json
+```
+
+Run the scripts from the repo root that contains `skills/symphony-linear-orchestrator/`. The skill's [SKILL.md](skills/symphony-linear-orchestrator/SKILL.md) and [reference docs](skills/symphony-linear-orchestrator/references/) walk through the full workflow.
 
 ## Example prompts
 
 - `Use $symphony-linear-orchestrator to onboard this repo for Symphony + Linear execution.`
-- `Use $symphony-linear-orchestrator to turn this feature request into a first execution wave with bounded Linear tickets.`
-- `Use $symphony-linear-orchestrator to generate a three-worker Symphony workflow with an In Review gate.`
+- `Use $symphony-linear-orchestrator to turn this feature request into a first execution wave with bounded Linear tickets and conservative first-run guardrails.`
+- `Use $symphony-linear-orchestrator to generate a medium-lane Symphony workflow with an In Review gate and no-progress stop-loss defaults.`
 - `Use $symphony-linear-orchestrator to run preflight checks and explain any blockers.`
 - `Use $symphony-linear-orchestrator to recover a stalled Symphony run and recommend the next operator action.`
 - `Use $symphony-linear-orchestrator to turn the last run into updated runbook steps and durable learnings for the next wave.`
@@ -101,10 +121,15 @@ Run all three from `skills/symphony-linear-orchestrator/scripts/`. The skill's [
 
 ## Design defaults
 
-- **Three concurrent workers** as the starting point
+- **One worker for the first run**, then scale out when the repo and issue graph are proven
+- **Explicit routing lanes** via `sym:small`, `sym:medium`, `sym:large`, and `sym:content`
 - **`In Review` as the operator gate** — no auto-merge, no auto-Done
+- **Workspace bootstrap assertions** for branch and repo-anchor paths
+- **No-progress guardrails** so obviously stuck runs can be requeued instead of burning tokens indefinitely
+- **Canonical issue rendering** so the human-readable body and `<!-- symphony:schema -->` block stay in sync
 - **Self-improving loop** via RUNBOOK.md + LEARNINGS.md with promotion into durable guidance
 - **Bounded issue contract** with acceptance criteria, validation commands, and touched areas
+- **Security/privacy hygiene**: keep secrets, credentials, session cookies, personal data, and raw customer payloads out of issue bodies, workflow files, and learnings docs
 - **No snapshot promotion or automatic PR creation** in the default workflow
 - **No machine-specific background services** introduced into the target repo
 

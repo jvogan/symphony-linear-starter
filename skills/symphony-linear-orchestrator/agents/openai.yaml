@@ -1,4 +1,4 @@
 interface:
   display_name: "Symphony + Linear Orchestrator"
-  short_description: "Bootstrap self-improving Symphony + Linear orchestration"
-  default_prompt: "Use $symphony-linear-orchestrator to onboard this repo for self-improving Symphony + Linear execution."
+  short_description: "Bootstrap guarded, lane-aware Symphony + Linear orchestration"
+  default_prompt: "Use $symphony-linear-orchestrator to onboard this repo for guarded, self-improving Symphony + Linear execution."

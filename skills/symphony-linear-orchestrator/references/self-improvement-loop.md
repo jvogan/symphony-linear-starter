@@ -20,7 +20,7 @@ This starter should get better after each real run. The orchestrator is responsi
 4. Promote stable learnings:
    - repo-specific worker instruction -> `AGENTS.md`
    - issue-shaping improvement -> `LINEAR_ISSUE_TEMPLATE.md`
-   - runtime or clone improvement -> workflow file
+   - runtime, bootstrap, or no-progress guardrail improvement -> workflow file
    - cross-repo operating pattern -> shared skill references
 5. Mark promoted learnings clearly so the learnings log stays useful instead of becoming a graveyard.
 
@@ -33,6 +33,7 @@ Promote a learning when:
 - the same validation command had to be added more than once
 - the same operator reminder keeps showing up in chat or comments
 - a workaround proved reliable enough to become normal procedure
+- a preventable redaction or sensitive-data handling problem appeared more than once
 
 ## What belongs where
 
@@ -45,6 +46,7 @@ Promote a learning when:
 ## Avoid
 
 - do not dump full chat transcripts into learnings
+- do not copy secrets, tokens, cookies, personal data, or raw customer payloads into learnings
 - do not keep stable guidance only in `LEARNINGS.md`
 - do not update `AGENTS.md` with one-off incidents that are still unproven
 - do not let the runbook drift from what the operator actually does

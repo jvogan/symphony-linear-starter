@@ -3,6 +3,8 @@ tracker:
   kind: linear
   api_key: $LINEAR_API_KEY
   project_slug: "__LINEAR_PROJECT_SLUG__"
+  issue_filters:
+    labels: ["__ISSUE_LABEL__"]
   active_states:
     - Todo
     - In Progress
@@ -15,6 +17,23 @@ tracker:
 
 workspace:
   root: $SYMPHONY_WORKSPACES_ROOT
+  assertions:
+    required_branch: "__REQUIRED_BRANCH__"
+    required_paths: __REQUIRED_PATHS_JSON__
+
+guardrails:
+  no_progress:
+    enabled: true
+    token_thresholds:
+      small: 1000000
+      medium: 2000000
+      large: 3500000
+    minutes_thresholds:
+      small: 15
+      medium: 25
+      large: 40
+    min_turns_before_stop: 1
+    retry_limit: 1
 
 hooks:
   after_create: |
@@ -26,13 +45,13 @@ hooks:
     }
 
 agent:
-  max_concurrent_agents: 3
+  max_concurrent_agents: __MAX_CONCURRENT_AGENTS__
   max_turns: 20
   auto_stop_when_idle: true
   idle_grace_checks: 2
 
 codex:
-  command: 'CODEX_HOME="$SYMPHONY_CODEX_HOME" codex --model gpt-5.4 --config shell_environment_policy.inherit=all --config model_reasoning_effort=medium app-server'
+  command: 'CODEX_HOME="$SYMPHONY_CODEX_HOME" codex --model __MODEL__ --config shell_environment_policy.inherit=all --config model_reasoning_effort=__REASONING_EFFORT__ app-server'
   approval_policy: never
   thread_sandbox: workspace-write
 ---
@@ -56,6 +75,8 @@ Read the workspace and Linear comments before continuing, then focus on the rema
 - Keep changes bounded to the issue.
 - Run the issue validation commands before concluding work.
 - Leave concise status updates and blockers in Linear.
+- Never paste secrets, tokens, session cookies, personal data, or raw customer payloads into Linear comments.
+- If sensitive material appears in terminal output or logs, redact it and describe the problem at a high level.
 - Treat `## Acceptance Criteria` as hard gates.
 - Treat `## Validation Commands` as exact commands to run from repo root.
 - Treat `## Touched Areas` as the expected scope. Note any extra files in the final comment.

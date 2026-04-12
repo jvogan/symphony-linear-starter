@@ -2,6 +2,8 @@
 
 This starter assumes Linear is the execution tracker. Every issue dispatched to Symphony should follow the same contract.
 
+Do not hand-author the schema block when you can avoid it. Prefer rendering or normalizing issue bodies with `scripts/issue_schema.py` so the human-readable sections and `<!-- symphony:schema -->` comment stay aligned.
+
 ## Required issue sections
 
 ```markdown
@@ -10,6 +12,8 @@ This starter assumes Linear is the execution tracker. Every issue dispatched to 
 
 ## Acceptance Criteria
 - [ ] <specific, testable assertion>
+
+> Do not include secrets, credentials, tokens, session cookies, personal data, or raw customer payloads in this issue body. Use redacted identifiers and secure stores instead.
 
 ## Validation Commands
 ```bash
@@ -54,12 +58,32 @@ complexity: medium
 - `In Review`
 - `Done`
 
+## Routing labels
+
+When multiple workflows share one Linear project, route them explicitly:
+
+- `sym:small`
+- `sym:medium`
+- `sym:large`
+- `sym:content`
+
+Keep routing labels in Linear metadata rather than inventing a markdown section for them in the issue body.
+
+## Sensitive data rules
+
+- Do not paste secrets, credentials, tokens, session cookies, personal data, or raw customer payloads into the issue body.
+- Validation commands should refer to secure stores or redacted fixtures instead of inline secrets.
+- If a bug only reproduces with real customer data, summarize the shape of the data and store the sensitive material outside Linear.
+- Risk notes should call out sensitive boundaries without reproducing the underlying data.
+
 ## Planning guidance
 
 - Keep most work in `Backlog`.
+- Keep the first real execution wave small and conservative.
 - Only activate the first wave at the beginning, but size that wave to fill your available worker slots.
 - Split large or ambiguous work before dispatch.
 - Put validation commands in the issue body, not only in chat.
 - Keep `Touched Areas` specific enough to support parallel work without overlap.
+- Keep issue bodies free of secrets and personal data, even when copying stack traces or API examples.
 - Design dependencies so the orchestrator can keep the queue moving instead of waiting on one giant ticket.
 - When the same issue-shaping mistake repeats, update `LINEAR_ISSUE_TEMPLATE.md` after the wave instead of fixing it one ticket at a time forever.

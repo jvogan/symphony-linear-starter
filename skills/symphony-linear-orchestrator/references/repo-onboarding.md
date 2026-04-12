@@ -10,6 +10,7 @@ At minimum, the target repo's `AGENTS.md` should cover:
 - how to test and lint it
 - important coding patterns or conventions
 - high-risk areas or sharp edges
+- secret, credential, and sensitive-data handling rules
 - any repository-specific workflows workers must follow
 
 ## What belongs in repo-local guidance
@@ -19,9 +20,11 @@ Put repo-specific instructions in the target repo:
 - exact build and test commands
 - architecture or folder conventions
 - secrets handling rules
+- what data must never be copied into Linear, workflow files, or learnings logs
 - service boundaries
 - high-risk files and stateful operations
 - stable learnings that workers should know before they start
+- stable workspace anchor paths that prove the checkout is correct
 
 ## What stays in this starter skill
 

@@ -44,10 +44,12 @@ Use this state model in Linear:
 
 ## First-run posture
 
-- Start with three workers when the repo is reasonably clean and the first tickets are well bounded.
-- Drop to one worker only for fragile repos, unclear baselines, or oversized tickets.
-- Keep the first wave small enough to preserve operator control, but large enough to fill your active worker slots.
+- Start with one worker for the first real run.
+- Scale out only after the repo baseline, issue boundaries, and review loop are behaving predictably.
+- Keep the first wave small enough to preserve operator control, even if that leaves worker slots unused at first.
 - Prefer explicit acceptance criteria over vague goals.
 - Review everything in `In Review` before trusting the loop.
 - Integrate validated output quickly. Throughput depends on the orchestrator moving the dependency chain, not waiting for formal polish.
 - Turn repeated lessons into better defaults. The fastest teams do not just review output; they reduce the odds of the same mistake on the next wave.
+- Keep secrets, credentials, session cookies, personal data, and raw customer payloads out of issues, workflow files, and learnings docs.
+- Prefer fast bootstrap failure and no-progress requeue over hoping a confused worker will self-correct.

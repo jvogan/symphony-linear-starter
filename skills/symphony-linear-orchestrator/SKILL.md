@@ -16,23 +16,26 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 
 ## Required workflow
 
-1. Inspect the target repo and current `AGENTS.md`.
+1. Inspect the target repo, current `AGENTS.md`, and any security or privacy constraints that workers must respect.
 2. Run `scripts/doctor.py` to confirm the local toolchain and auth state.
-3. Run `scripts/bootstrap.py` to render onboarding artifacts into the target repo's `.orchestration/` directory.
+3. Run `scripts/bootstrap.py` to render onboarding artifacts into the target repo's `.orchestration/` directory. Choose a lane deliberately, keep the first run conservative, and set workspace assertions that would catch a bad checkout quickly.
 4. Merge the generated `AGENTS_ADDITIONS.md` content into the target repo manually. Do not let the script edit `AGENTS.md` for you.
-5. Create Linear issues using the contract in `references/linear-contract.md`.
+5. Create Linear issues using the contract in `references/linear-contract.md` or render them from structured JSON with `scripts/issue_schema.py`.
 6. Run `scripts/preflight.py` before starting any real run.
-7. Start Symphony with `max_concurrent_agents: 3` by default when the repo is reasonably clean and the first wave is bounded. Drop to `1` only for fragile or unproven repos.
-8. Treat `In Review` as the orchestrator gate. Review worker output, integrate the result, then move the issue to `Done`.
-9. After each execution wave, update `.orchestration/RUNBOOK.md` and `.orchestration/LEARNINGS.md`, then promote stable learnings into `AGENTS.md`, the issue template, or workflow defaults.
+7. Start with `max_concurrent_agents: 1` by default. Raise concurrency only after the repo baseline, issue boundaries, and review loop are proven.
+8. When multiple workflows share one Linear project, use explicit routing labels such as `sym:small`, `sym:medium`, `sym:large`, and `sym:content`.
+9. Treat `In Review` as the orchestrator gate. Review worker output, integrate the result, then move the issue to `Done`.
+10. After each execution wave, update `.orchestration/RUNBOOK.md` and `.orchestration/LEARNINGS.md`, then promote stable learnings into `AGENTS.md`, the issue template, or workflow defaults.
 
 ## Safety defaults
 
 - Keep most work in `Backlog`.
-- Activate only the first execution wave, but size that wave to fill your worker slots.
+- Activate only the first execution wave. Fill worker slots only after the workflow, issue contract, and review loop are behaving predictably.
 - Do not auto-merge.
 - Do not default to snapshot promotion or automatic PR creation.
 - Do not introduce machine-specific background services into the target repo.
+- Do not put secrets, credentials, tokens, session cookies, personal data, or raw customer payloads into Linear issue bodies, workflow files, learnings, or worker comments.
+- Prefer bootstrap assertions and no-progress guardrails over relying on operator intuition after a run has already gone wrong.
 - Integrate validated worker output quickly so the dependency chain keeps moving.
 - Do not leave repeated lessons trapped in chat or issue comments. Promote durable learnings into repo guidance.
 
