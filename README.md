@@ -50,6 +50,17 @@ You install the skill, point it at a repo, and your agent gains a complete multi
                └─────────────┘
 ```
 
+## Prerequisites
+
+Before installing, make sure you have:
+
+- **[Codex](https://openai.com/index/codex/)** or **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** installed (your orchestrator agent)
+- **[OpenAI Symphony](https://github.com/openai/symphony)** built locally (the dispatch runtime)
+- **[Linear](https://linear.app)** account with an API key (`LINEAR_API_KEY` in your environment)
+- **[GitHub CLI](https://cli.github.com/)** (`gh`) installed and authenticated (`gh auth login`)
+- **Python 3** and **git**
+- A target git repo you want to automate
+
 ## Install
 
 ### Skills CLI (recommended)
@@ -57,6 +68,8 @@ You install the skill, point it at a repo, and your agent gains a complete multi
 ```bash
 npx skills add jvogan/symphony-linear-starter
 ```
+
+This clones the skill into your local skills directory (e.g. `~/.codex/skills/`) so your agent can discover it.
 
 ### Codex (manual)
 
@@ -69,17 +82,20 @@ Restart Codex after installing so the skill is discoverable.
 
 ### Claude Code (manual)
 
-Point Claude Code at the skill folder as shared instructions, or copy the skill into your project:
+Add the skill as a context reference in your project's `CLAUDE.md`:
 
-```text
-skills/symphony-linear-orchestrator/SKILL.md
+```markdown
+<!-- In your project's CLAUDE.md -->
+See @skills/symphony-linear-orchestrator/SKILL.md for Symphony + Linear orchestration.
 ```
+
+Or copy the skill folder into your project and reference `skills/symphony-linear-orchestrator/SKILL.md` directly from your agent instructions.
 
 ## Getting started
 
 The skill includes four scripts to get a repo ready for Symphony:
 
-1. **`doctor.py`** checks that your local toolchain (`git`, `gh`, `bash`, `python3`, Symphony, `LINEAR_API_KEY`) is ready.
+1. **`doctor.py`** checks that your local toolchain is ready: `git`, `gh` (installed + authenticated), `bash`, `python3`, `codex`, Symphony, and `LINEAR_API_KEY`.
 2. **`bootstrap.py`** renders a lane-aware workflow, runbook, learnings log, issue template, and guidance additions into the target repo.
 3. **`issue_schema.py`** renders or normalizes canonical Linear issue bodies so the human markdown and `<!-- symphony:schema -->` block stay aligned.
 4. **`preflight.py`** validates the rendered workflow, guardrails, runbook, learnings scaffold, and repo state before you start a run.
@@ -99,7 +115,11 @@ python3 skills/symphony-linear-orchestrator/scripts/bootstrap.py \
   --required-path package.json \
   --write
 
-# 3. Validate before starting
+# 3. Render or normalize a Linear issue body
+echo '{"title":"Add auth","acceptance":"tests pass","validation":"npm test"}' \
+  | python3 skills/symphony-linear-orchestrator/scripts/issue_schema.py render
+
+# 4. Validate before starting
 python3 skills/symphony-linear-orchestrator/scripts/preflight.py \
   --target-repo /path/to/repo \
   --workflow /path/to/repo/.orchestration/wave1.WORKFLOW.md \
