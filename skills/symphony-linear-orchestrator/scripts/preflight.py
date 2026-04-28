@@ -12,8 +12,15 @@ REQUIRED_STATES = ["Backlog", "Todo", "In Progress", "In Review", "Done"]
 PLACEHOLDER_PATTERNS = [
     r"replace-with-linear-project-slug",
     r"<clone-url>",
+    r"__WORKFLOW_NAME__",
     r"__LINEAR_PROJECT_SLUG__",
     r"__CLONE_URL__",
+    r"__ISSUE_LABEL__",
+    r"__MODEL__",
+    r"__REASONING_EFFORT__",
+    r"__MAX_CONCURRENT_AGENTS__",
+    r"__REQUIRED_BRANCH__",
+    r"__REQUIRED_PATHS_JSON__",
 ]
 SECRET_PATTERNS = [
     re.compile(r"api_key:\s*[\"']?(?!\$|\$\{)[A-Za-z0-9_\-]{12,}"),
@@ -40,6 +47,30 @@ def extract_json_array(text: str, key: str) -> list[str] | None:
     if not isinstance(value, list):
         return None
     return [str(item) for item in value]
+
+
+def extract_scalar(text: str, key: str) -> str | None:
+    match = re.search(rf"^\s*{re.escape(key)}:\s*[\"']?(?P<value>[^\"'\n#]+)", text, re.MULTILINE)
+    if not match:
+        return None
+    return match.group("value").strip()
+
+
+def extract_int(text: str, key: str) -> int | None:
+    value = extract_scalar(text, key)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def extract_campaign_field(text: str, field: str) -> str | None:
+    match = re.search(r"^campaign:\s*\n(?P<body>(?:[ \t]+[^\n]*\n?)+)", text, re.MULTILINE)
+    if not match:
+        return None
+    return extract_scalar(match.group("body"), field)
 
 
 def extract_required_branch(text: str) -> str | None:
@@ -135,13 +166,87 @@ def main() -> int:
             results.append(make_result("no_progress_guardrail", "fail", "workflow is missing a no-progress guardrail block"))
 
         labels = extract_json_array(workflow_text, "labels")
+        assignee = extract_scalar(workflow_text, "assignee")
+        routing_guard = bool(labels or assignee)
+
         if labels:
             if all(label.startswith("sym:") for label in labels):
                 results.append(make_result("routing_labels", "pass", f"workflow routes only labels: {', '.join(labels)}"))
             else:
                 results.append(make_result("routing_labels", "warn", f"workflow label filters exist but are not all sym:* labels: {', '.join(labels)}"))
+        elif assignee:
+            results.append(make_result("routing_labels", "pass", f"workflow routes by assignee: {assignee}"))
         else:
             results.append(make_result("routing_labels", "warn", "workflow has no explicit label filters; this is acceptable only for a single-lane setup"))
+
+        campaign_mode = extract_campaign_field(workflow_text, "mode")
+        campaign_label = extract_campaign_field(workflow_text, "routing_label")
+        integration_owner = extract_campaign_field(workflow_text, "integration_owner")
+        campaign_trust = extract_campaign_field(workflow_text, "trust")
+        missing_campaign_fields = [
+            name
+            for name, value in {
+                "mode": campaign_mode,
+                "routing_label": campaign_label,
+                "trust": campaign_trust,
+                "integration_owner": integration_owner,
+            }.items()
+            if not value
+        ]
+        if missing_campaign_fields:
+            results.append(make_result("campaign_metadata", "warn", f"campaign metadata missing: {', '.join(missing_campaign_fields)}"))
+        else:
+            results.append(make_result("campaign_metadata", "pass", f"campaign mode {campaign_mode}, owner {integration_owner}"))
+
+        if campaign_label and labels and campaign_label not in labels:
+            results.append(make_result("campaign_routing_match", "warn", f"campaign routing label {campaign_label} is not in tracker labels: {', '.join(labels)}"))
+        elif campaign_label and labels:
+            results.append(make_result("campaign_routing_match", "pass", "campaign routing label matches tracker label filter"))
+        elif campaign_label:
+            results.append(make_result("campaign_routing_match", "skip", "campaign routing label present but workflow does not use label routing"))
+        else:
+            results.append(make_result("campaign_routing_match", "skip", "skipped because campaign routing label is missing"))
+
+        if "shell_environment_policy.inherit=all" in workflow_text:
+            results.append(make_result("codex_env_policy", "warn", "workflow inherits the full shell environment; prefer include_only for required variables"))
+        elif "shell_environment_policy.include_only" in workflow_text:
+            results.append(make_result("codex_env_policy", "pass", "workflow uses an explicit shell environment allowlist"))
+        else:
+            results.append(make_result("codex_env_policy", "warn", "workflow does not declare a Codex shell environment policy"))
+
+        if "danger-full-access" in workflow_text and not routing_guard:
+            results.append(make_result("codex_full_access_routing", "fail", "danger-full-access requires a label or assignee routing guard"))
+        elif "danger-full-access" in workflow_text:
+            results.append(make_result("codex_full_access_routing", "warn", "danger-full-access is configured; use only with trusted Linear issue authors"))
+        else:
+            results.append(make_result("codex_full_access_routing", "pass", "workflow does not use danger-full-access"))
+
+        max_concurrent_agents = extract_int(workflow_text, "max_concurrent_agents")
+        if max_concurrent_agents and max_concurrent_agents > 1:
+            if contains_all(workflow_text, "Touched Areas", "overlap"):
+                results.append(make_result("concurrency_overlap_guidance", "pass", "concurrent workflow includes touched-area overlap guidance"))
+            else:
+                results.append(make_result("concurrency_overlap_guidance", "warn", "concurrent workflow should tell workers how to handle touched-area overlap"))
+        else:
+            results.append(make_result("concurrency_overlap_guidance", "pass", "single-worker workflow does not need overlap-specific guidance"))
+
+        has_snapshot_promote = "snapshot-promote" in workflow_text and "after_run:" in workflow_text
+        if has_snapshot_promote and max_concurrent_agents and max_concurrent_agents > 1:
+            results.append(make_result("snapshot_promote_concurrency", "fail", "snapshot-promote in after_run is unsafe with concurrent workers"))
+        elif has_snapshot_promote:
+            results.append(make_result("snapshot_promote_concurrency", "warn", "snapshot-promote should be reserved for single-worker or low-overlap campaigns"))
+        else:
+            results.append(make_result("snapshot_promote_concurrency", "pass", "workflow does not use snapshot-promote"))
+
+        prompt_mentions_review_gate = contains_all(workflow_text, "In Review", "not directly to `Done`")
+        if integration_owner == "orchestrator" and prompt_mentions_review_gate:
+            results.append(make_result("closeout_contract", "pass", "worker prompt and campaign metadata both use an orchestrator review gate"))
+        elif integration_owner and prompt_mentions_review_gate:
+            results.append(make_result("closeout_contract", "warn", f"worker prompt uses In Review, but integration_owner is {integration_owner}"))
+        elif integration_owner:
+            results.append(make_result("closeout_contract", "warn", "campaign metadata exists but worker closeout instructions are unclear"))
+        else:
+            results.append(make_result("closeout_contract", "skip", "skipped because campaign integration owner is missing"))
 
         required_branch = extract_required_branch(workflow_text)
         repo_branch = current_branch(target_repo)
@@ -175,6 +280,13 @@ def main() -> int:
         results.append(make_result("workspace_assertions", "skip", "skipped because workflow file is missing"))
         results.append(make_result("no_progress_guardrail", "skip", "skipped because workflow file is missing"))
         results.append(make_result("routing_labels", "skip", "skipped because workflow file is missing"))
+        results.append(make_result("campaign_metadata", "skip", "skipped because workflow file is missing"))
+        results.append(make_result("campaign_routing_match", "skip", "skipped because workflow file is missing"))
+        results.append(make_result("codex_env_policy", "skip", "skipped because workflow file is missing"))
+        results.append(make_result("codex_full_access_routing", "skip", "skipped because workflow file is missing"))
+        results.append(make_result("concurrency_overlap_guidance", "skip", "skipped because workflow file is missing"))
+        results.append(make_result("snapshot_promote_concurrency", "skip", "skipped because workflow file is missing"))
+        results.append(make_result("closeout_contract", "skip", "skipped because workflow file is missing"))
         results.append(make_result("required_branch", "skip", "skipped because workflow file is missing"))
         results.append(make_result("required_paths", "skip", "skipped because workflow file is missing"))
         results.append(make_result("workflow_secret_hygiene", "skip", "skipped because workflow file is missing"))

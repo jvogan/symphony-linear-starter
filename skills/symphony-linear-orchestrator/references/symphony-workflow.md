@@ -10,15 +10,18 @@ A useful Symphony workflow has two parts:
 ## Recommended defaults
 
 - Pin the worker model in the workflow.
+- Declare `campaign.mode`, `campaign.routing_label`, `campaign.trust`, and `campaign.integration_owner` so closeout behavior is explicit.
 - Start with `max_concurrent_agents: 1` for the first real run.
 - Scale out only after the repo has a clean baseline, the first wave is bounded, and the review loop is actually keeping up.
 - Use `workspace-write` or the narrowest sandbox that still lets workers do the job.
+- Use `shell_environment_policy.include_only` for worker commands. Add only the environment variables the worker actually needs.
 - Require the worker to read repo guidance before changing files.
 - Require a final status comment before the worker changes issue state.
-- Plan the first wave to keep all active slots busy without creating overlap.
+- Plan the first wave to keep all active slots busy without creating touched-area overlap.
 - Add `workspace.assertions.required_branch` plus `workspace.assertions.required_paths` so a bad checkout fails fast.
 - Add `guardrails.no_progress` so obviously stuck runs can be requeued instead of burning tokens indefinitely.
 - Use `tracker.issue_filters.labels` when multiple workflows share one Linear project.
+- Treat everyone who can create or edit routed Linear issues as part of the trusted execution boundary.
 
 ## Lane defaults
 
@@ -41,6 +44,20 @@ The minimum bootstrap contract is:
 - the checked out branch matches `workspace.assertions.required_branch`
 - every `workspace.assertions.required_paths` entry exists
 - each declared touched area has a nearest existing parent inside the workspace
+
+## Closeout contract
+
+The starter template uses this explicit campaign metadata:
+
+```yaml
+campaign:
+  mode: orchestrator-review
+  routing_label: "sym:medium"
+  trust: trusted-operators
+  integration_owner: orchestrator
+```
+
+This is human- and preflight-readable metadata. It keeps the worker prompt, Linear routing label, and operator responsibility aligned. If you change the closeout mode, update the worker prompt in the same edit.
 
 The defensive clone pattern is still useful:
 
@@ -80,6 +97,8 @@ In practice, fast runs depend on tight integration loops. Review active workspac
 Fast teams also close the loop after each wave. If a retry exposed a clone problem, a ticket was too large, or review kept catching the same gap, update the runbook or workflow immediately instead of carrying the same operational debt into the next run.
 
 Do not default to automatic PR creation, snapshot promotion, or machine-specific background hooks in the first version of a public starter.
+
+If you later add snapshot promotion, keep it single-worker or prove that touched areas cannot overlap. A broad `rsync --delete` style promotion hook can delete another worker's output when concurrent workspaces diverge.
 
 ## Pinned model guidance
 

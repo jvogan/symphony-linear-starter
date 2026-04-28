@@ -22,7 +22,7 @@ Developers and operators who want to run autonomous AI agent teams against real 
 
 Plan → Dispatch → Execute → Review → Improve → Done
 
-Default first-run concurrency: 1 worker. Review gate: In Review. No auto-merge.
+Default first-run concurrency: 1 worker. Review gate: In Review. No auto-merge. Generated workflows include explicit routing labels, campaign closeout metadata, and a narrow worker environment allowlist.
 
 ## Repo structure
 

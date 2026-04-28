@@ -42,6 +42,8 @@ Use this state model in Linear:
 
 `In Review` is the default orchestrator review gate. Workers should move completed work there after validation and a final status comment. The orchestrator reads the output, integrates or rejects it, then decides whether the issue moves to `Done`, back to `Todo`, or to a blocked state.
 
+Treat the routed Linear project or label as a trusted execution queue. Issue titles, bodies, comments, labels, and blockers are worker input, so only trusted operators should be able to create or edit issues that match a Symphony workflow's routing filter.
+
 ## First-run posture
 
 - Start with one worker for the first real run.

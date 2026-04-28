@@ -24,8 +24,9 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 6. Run `scripts/preflight.py` before starting any real run.
 7. Start with `max_concurrent_agents: 1` by default. Raise concurrency only after the repo baseline, issue boundaries, and review loop are proven.
 8. When multiple workflows share one Linear project, use explicit routing labels such as `sym:small`, `sym:medium`, `sym:large`, and `sym:content`.
-9. Treat `In Review` as the orchestrator gate. Review worker output, integrate the result, then move the issue to `Done`.
-10. After each execution wave, update `.orchestration/RUNBOOK.md` and `.orchestration/LEARNINGS.md`, then promote stable learnings into `AGENTS.md`, the issue template, or workflow defaults.
+9. Keep the workflow's `campaign` metadata aligned with the worker prompt: the default mode is `orchestrator-review`, workers move completed issues to `In Review`, and the orchestrator integrates before moving issues to `Done`.
+10. Treat `In Review` as the orchestrator gate. Review worker output, integrate the result, then move the issue to `Done`.
+11. After each execution wave, update `.orchestration/RUNBOOK.md` and `.orchestration/LEARNINGS.md`, then promote stable learnings into `AGENTS.md`, the issue template, or workflow defaults.
 
 ## Safety defaults
 
@@ -34,7 +35,9 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 - Do not auto-merge.
 - Do not default to snapshot promotion or automatic PR creation.
 - Do not introduce machine-specific background services into the target repo.
+- Do not inherit the whole shell environment by default. Use an explicit Codex environment allowlist and add variables only when the workflow requires them.
 - Do not put secrets, credentials, tokens, session cookies, personal data, or raw customer payloads into Linear issue bodies, workflow files, learnings, or worker comments.
+- Treat anyone who can create or edit routed Linear issues as part of the trusted execution boundary.
 - Prefer bootstrap assertions and no-progress guardrails over relying on operator intuition after a run has already gone wrong.
 - Integrate validated worker output quickly so the dependency chain keeps moving.
 - Do not leave repeated lessons trapped in chat or issue comments. Promote durable learnings into repo guidance.

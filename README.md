@@ -98,7 +98,7 @@ The skill includes four scripts to get a repo ready for Symphony:
 1. **`doctor.py`** checks that your local toolchain is ready: `git`, `gh` (installed + authenticated), `bash`, `python3`, `codex`, Symphony, and `LINEAR_API_KEY`.
 2. **`bootstrap.py`** renders a lane-aware workflow, runbook, learnings log, issue template, and guidance additions into the target repo.
 3. **`issue_schema.py`** renders or normalizes canonical Linear issue bodies so the human markdown and `<!-- symphony:schema -->` block stay aligned.
-4. **`preflight.py`** validates the rendered workflow, guardrails, runbook, learnings scaffold, and repo state before you start a run.
+4. **`preflight.py`** validates the rendered workflow, routing labels, environment policy, closeout contract, snapshot-promotion safety, guardrails, runbook, learnings scaffold, and repo state before you start a run.
 
 ```bash
 # 1. Check toolchain
@@ -173,13 +173,15 @@ and durable learnings for the next wave.
 
 - **One worker for the first run**, then scale out when the repo and issue graph are proven
 - **Explicit routing lanes** via `sym:small`, `sym:medium`, `sym:large`, and `sym:content`
+- **Explicit campaign metadata** so routing, trust boundary, and closeout ownership are visible in the workflow
 - **`In Review` as the operator gate** — no auto-merge, no auto-Done
 - **Workspace bootstrap assertions** for branch and repo-anchor paths
 - **No-progress guardrails** so stuck runs get requeued instead of burning tokens
+- **Narrow worker environment allowlist** by default: workers receive `LINEAR_API_KEY`, not the entire shell environment
 - **Canonical issue rendering** so the human-readable body and machine-readable schema stay in sync
 - **Self-improving loop** via RUNBOOK.md + LEARNINGS.md with promotion into durable guidance
 - **Bounded issue contract** with acceptance criteria, validation commands, and touched areas
-- **Security/privacy hygiene**: secrets, credentials, and personal data stay out of issue bodies and workflow files
+- **Security/privacy hygiene**: secrets, credentials, and personal data stay out of issue bodies and workflow files; routed Linear issue authors are part of the trusted execution boundary
 - **No auto-merge, no snapshot promotion, no background services** in the default workflow
 
 ## Related

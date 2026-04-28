@@ -69,6 +69,8 @@ When multiple workflows share one Linear project, route them explicitly:
 
 Keep routing labels in Linear metadata rather than inventing a markdown section for them in the issue body.
 
+Only trusted operators should be able to create or edit issues that match a routed Symphony label. Once an issue enters the active queue, its title, body, comments, labels, and blockers become instructions and context for an autonomous worker.
+
 ## Sensitive data rules
 
 - Do not paste secrets, credentials, tokens, session cookies, personal data, or raw customer payloads into the issue body.

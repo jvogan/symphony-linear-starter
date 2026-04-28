@@ -15,6 +15,12 @@ tracker:
     - Canceled
     - Duplicate
 
+campaign:
+  mode: orchestrator-review
+  routing_label: "__ISSUE_LABEL__"
+  trust: trusted-operators
+  integration_owner: orchestrator
+
 workspace:
   root: $SYMPHONY_WORKSPACES_ROOT
   assertions:
@@ -51,7 +57,7 @@ agent:
   idle_grace_checks: 2
 
 codex:
-  command: 'CODEX_HOME="$SYMPHONY_CODEX_HOME" codex --model __MODEL__ --config shell_environment_policy.inherit=all --config model_reasoning_effort=__REASONING_EFFORT__ app-server'
+  command: 'CODEX_HOME="$SYMPHONY_CODEX_HOME" codex --model __MODEL__ --config ''shell_environment_policy.include_only=["LINEAR_API_KEY"]'' --config model_reasoning_effort=__REASONING_EFFORT__ app-server'
   approval_policy: never
   thread_sandbox: workspace-write
 ---
@@ -80,6 +86,7 @@ Read the workspace and Linear comments before continuing, then focus on the rema
 - Treat `## Acceptance Criteria` as hard gates.
 - Treat `## Validation Commands` as exact commands to run from repo root.
 - Treat `## Touched Areas` as the expected scope. Note any extra files in the final comment.
+- If this run has multiple workers, treat touched areas as coordination boundaries and call out overlap risk before editing shared files.
 - Post a final status comment before changing issue state.
 - Expect most planned work to live in `Backlog` until the orchestrator activates it.
 - Move successful issues to `In Review`, not directly to `Done`.
