@@ -4,6 +4,8 @@ tracker:
   api_key: $LINEAR_API_KEY
   project_slug: "__LINEAR_PROJECT_SLUG__"
   issue_filters:
+    # An issue must carry ALL listed labels to be processed: the campaign label
+    # AND release:ready. Drop __ISSUE_LABEL__ to release any release:ready issue.
     labels: ["__ISSUE_LABEL__", "release:ready"]
   active_states:
     - Ready to Merge
@@ -25,13 +27,14 @@ release_manager:
   mode: github-merge-queue
   repo: "__GITHUB_REPO__"
   base_branch: "__REQUIRED_BRANCH__"
-  # merge_method: squash   # Optional for repos without a GitHub Merge Queue.
+  # merge_method: squash       # Optional for repos without a GitHub Merge Queue.
+  # require_merge_queue: true  # Refuse to enqueue unless a merge queue is enabled on base_branch.
   ready_states: ["Ready to Merge", "In Review"]
   ready_labels: ["release:ready"]
   done_state: Done
   blocked_state: Todo
   queued_state: Merging
-  max_per_run: 5
+  max_per_run: 10            # Fresh enqueues per pass; already-queued issues finalize outside this budget. A larger burst just needs another pass — re-run until "drained": true.
   delete_branch: true
   comment_mode: minimal
   lock_dir: ".orchestration/release-manager.lock"
@@ -55,6 +58,12 @@ You are the Release Manager lane for this repository.
 - You are the only lane allowed to queue, merge, or deploy to `__REQUIRED_BRANCH__`.
 - Do not implement product changes.
 - Do not rebase or repair feature branches manually.
+- Before the first apply, confirm a merge queue is enabled (otherwise a PR burst falls back to serial auto-merge):
+
+```bash
+python3 skills/symphony-linear-orchestrator/scripts/release_manager.py --workflow .orchestration/release-manager.WORKFLOW.md --check-merge-queue --json
+```
+
 - Process release-ready issues by running:
 
 ```bash
@@ -63,4 +72,4 @@ python3 skills/symphony-linear-orchestrator/scripts/release_manager.py --workflo
 
 - If a PR has conflicts or is closed without merge, leave the implementation issue in `Todo` or the configured blocked state so a normal worker can repair it.
 - Keep Linear comments concise. Use `release_manager.comment_mode: none` when the workflow should avoid release comments entirely.
-- Stop after one queue pass. The orchestrator or scheduler can run this lane again.
+- Stop after one queue pass. Re-running is safe and expected: it finalizes PRs the queue merged since the last pass, drains issues beyond `max_per_run`, and never re-enqueues an in-flight PR. The orchestrator or a scheduler should run this lane again until the burst is drained.
