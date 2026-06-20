@@ -109,6 +109,21 @@ Operator action:
 - confirm the issue body `Dependencies` section matches the actual blocker graph
 - only activate the next wave when upstream work is really ready
 
+## Release Manager lane stalls
+
+Symptoms:
+
+- the scheduled drain Action runs red every time, or `drained` is never `true`
+- an issue sits in the queued state (`Merging`) across many passes and the `in_flight` count does not drop
+- a PR is parked in the blocked state (`Todo`) and nothing repairs it
+
+Operator action:
+
+- **Action red / never drains**: confirm the `LINEAR_API_KEY` Actions secret is set; confirm `release_manager.merge_method` is set when there is no merge queue; run `release_manager.py --check-merge-queue` and verify CI also triggers on `merge_group` (queued PRs never finish otherwise).
+- **Stuck `in_flight`** (a queue-evicted PR the lane cannot self-heal): the PR author fixes its CI and the queue retries it; if it is truly stranded, move the issue out of the queued state back to a ready state so the next pass re-enqueues it.
+- **Blocked PR**: a conflicted or closed PR is returned to the blocked state; a worker must repair it and move it back to a ready state — this needs a re-dispatched wave, not the lane.
+- **Stuck single-writer lock**: if `.orchestration/release-manager.lock` is held after a crash, confirm no lane is running, then remove the lock directory and re-run.
+
 ## After any incident
 
 Operator action:

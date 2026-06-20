@@ -1,0 +1,48 @@
+# ----------------------------------------------------------------------------
+# GitHub-native auto-merge on label (NO Linear, NO Symphony required)
+#
+# Use this if you are NOT running the Symphony + Linear Release Manager lane and
+# just want hands-off, batched merging on plain GitHub. When a PR gets the
+# `release:ready` label, this enables auto-merge on that PR, so it joins the
+# repository's merge queue (or auto-merges when green if you have no queue).
+#
+# This is a COPY-ME sample. It lives under assets/examples/ so it does NOT run in
+# this repo. To use it in YOUR repo:
+#   1. Settings -> General -> enable "Allow auto-merge"
+#      (and ideally enable a merge queue so a BURST batches instead of serializing
+#       -- see references/release-manager-lane.md, "Verify and enable").
+#   2. Create a `release:ready` label in your repo (Issues/PRs -> Labels).
+#   3. Copy this file to .github/workflows/auto-merge-on-label.yml and commit it.
+#
+# How it differs from the Release Manager lane: this has NO Linear, so there is
+# no issue closeout, no audit trail, and no drain reconciliation -- it simply
+# tells GitHub "merge this PR when it is green". The merge queue does the
+# batching/serialization, so unlike the lane this needs no single-writer lock:
+# it only flips auto-merge on one PR at a time, which is idempotent.
+# ----------------------------------------------------------------------------
+name: Auto-merge on label
+
+on:
+  pull_request:
+    types: [labeled]   # label the PR AFTER it is ready for review (not a draft)
+
+permissions:
+  contents: write        # merge the PR
+  pull-requests: write   # enable auto-merge
+
+jobs:
+  enqueue:
+    # Only the ready label, and never a draft (auto-merge rejects drafts).
+    if: github.event.label.name == 'release:ready' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge (joins the merge queue if one is configured)
+        env:
+          # GITHUB_TOKEN can enable auto-merge. If you need the enqueue to trigger
+          # OTHER workflows, use a PAT secret instead -- token events do not
+          # cascade, though the merge_group build is queue-generated so CI runs.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # --squash is the method for the no-queue fallback; with a merge queue the
+        # queue's configured method applies. Change it to match your repo's allowed
+        # merge methods (merge | squash | rebase).
+        run: gh pr merge --auto --squash "${{ github.event.pull_request.html_url }}"

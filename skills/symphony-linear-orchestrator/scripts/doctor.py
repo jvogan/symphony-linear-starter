@@ -75,6 +75,16 @@ def env_check(name: str) -> dict:
     }
 
 
+def python_version_check() -> dict:
+    ok = sys.version_info >= (3, 10)
+    version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    return {
+        "name": "python>=3.10",
+        "ok": ok,
+        "message": f"running {version}" if ok else f"running {version}; the starter scripts require Python 3.10+",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check local readiness for the Symphony + Linear starter.")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable output.")
@@ -86,6 +96,7 @@ def main() -> int:
         command_check("gh"),
         command_check("codex"),
         command_check("python3"),
+        python_version_check(),
         symphony_check(),
         env_check("LINEAR_API_KEY"),
         github_auth_check(),

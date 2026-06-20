@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -310,6 +312,7 @@ def main() -> int:
             release_repo = extract_scalar(release_block, "repo")
             release_mode = extract_scalar(release_block, "mode")
             release_base_branch = extract_scalar(release_block, "base_branch") or "main"
+            release_merge_method = extract_scalar(release_block, "merge_method")
             if release_repo and "/" in release_repo:
                 results.append(make_result("release_manager_repo", "pass", f"release-manager repo is {release_repo}"))
             else:
@@ -327,11 +330,20 @@ def main() -> int:
                 if enabled is True:
                     results.append(make_result("release_manager_merge_queue", "pass", f"GitHub merge queue is enabled on {release_base_branch}"))
                 elif enabled is False:
-                    diagnosis = queue_status.get("diagnosis") or (
-                        f"mode is github-merge-queue but no merge queue is enabled on {release_base_branch}; "
-                        "a PR burst will fall back to serial auto-merge — see references/release-manager-lane.md"
-                    )
-                    results.append(make_result("release_manager_merge_queue", "warn", diagnosis))
+                    if not release_merge_method:
+                        results.append(make_result(
+                            "release_manager_merge_queue",
+                            "fail",
+                            f"mode is github-merge-queue but no merge queue is enabled on {release_base_branch} and "
+                            "release_manager.merge_method is unset, so gh pr merge --auto has no method and every enqueue fails; "
+                            "set merge_method (squash|merge|rebase) for serial auto-merge, or enable a merge queue — see references/release-manager-lane.md",
+                        ))
+                    else:
+                        diagnosis = queue_status.get("diagnosis") or (
+                            f"mode is github-merge-queue but no merge queue is enabled on {release_base_branch}; "
+                            "a PR burst will fall back to serial auto-merge — see references/release-manager-lane.md"
+                        )
+                        results.append(make_result("release_manager_merge_queue", "warn", diagnosis))
                 else:
                     results.append(make_result("release_manager_merge_queue", "skip", f"could not verify merge queue ({queue_status.get('detail', 'unknown')}); run release_manager.py --check-merge-queue manually"))
 
