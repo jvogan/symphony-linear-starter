@@ -87,7 +87,7 @@ Read the workspace and Linear comments before continuing, then focus on the rema
 - Treat `## Validation Commands` as exact commands to run from repo root.
 - Treat `## Touched Areas` as the expected scope. Note any extra files in the final comment.
 - If this run has multiple workers, treat touched areas as coordination boundaries and call out overlap risk before editing shared files.
-- Do not merge, rebase, push to, or deploy the base branch. If this repo has enabled the optional Release Manager lane and you have a PR URL, include `pr_url: https://github.com/.../pull/N` in the final `<!-- symphony-outcome -->` comment and add/keep the `release:ready` label only after validation passes.
+- Do not merge, rebase, push to, or deploy the base branch. If this repo has enabled the optional Release Manager lane, push your own feature branch and open a PR (`gh pr create`) after validation passes, then include `pr_url: https://github.com/.../pull/N` in the final `<!-- symphony-outcome -->` comment and add/keep the `release:ready` label. (This needs a PR-scoped token in the worker env allowlist — see references/release-manager-lane.md, "Workers must open the PR".)
 - Post a final status comment before changing issue state.
 - Expect most planned work to live in `Backlog` until the orchestrator activates it.
 - Move successful issues to `In Review`, not directly to `Done`.

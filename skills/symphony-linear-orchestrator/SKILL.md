@@ -21,13 +21,13 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 3. Run `scripts/bootstrap.py` to render onboarding artifacts into the target repo's `.orchestration/` directory. Choose a lane deliberately, keep the first run conservative, and set workspace assertions that would catch a bad checkout quickly.
 4. Merge the generated `AGENTS_ADDITIONS.md` content into the target repo manually. Do not let the script edit `AGENTS.md` for you.
 5. Create Linear issues using the contract in `references/linear-contract.md` or render them from structured JSON with `scripts/issue_schema.py`.
-6. Run `scripts/preflight.py` before starting any real run.
+6. Run `scripts/preflight.py` before starting any real run, then dispatch the wave: run your built Symphony binary against the rendered `.orchestration/<name>.WORKFLOW.md` (e.g. `symphony .orchestration/wave1.WORKFLOW.md --logs-root .orchestration/logs/wave1`; see the README quickstart and https://github.com/openai/symphony for build + exact flags). Symphony spawns one worker per active Linear issue.
 7. Start with `max_concurrent_agents: 1` by default. Raise concurrency only after the repo baseline, issue boundaries, and review loop are proven.
 8. When multiple workflows share one Linear project, use explicit routing labels such as `sym:small`, `sym:medium`, `sym:large`, and `sym:content`.
 9. Keep the workflow's `campaign` metadata aligned with the worker prompt: the default mode is `orchestrator-review`, workers move completed issues to `In Review`, and the orchestrator integrates before moving issues to `Done`.
 10. Treat `In Review` as the orchestrator gate. Review worker output, integrate the result, then move the issue to `Done`.
 11. After each execution wave, update `.orchestration/RUNBOOK.md` and `.orchestration/LEARNINGS.md`, then promote stable learnings into `AGENTS.md`, the issue template, or workflow defaults.
-12. Use the optional Release Manager lane only after workers reliably attach PR URLs and mark issues with `release:ready`. Keep it single-writer (`max_concurrent_agents: 1`) and dry-run it before using `--apply`. For high-volume parallel merges, verify a GitHub merge queue is enabled first (`scripts/release_manager.py --check-merge-queue`) so a burst of PRs batches instead of serializing, and re-run the lane to drain and finalize. See `references/release-manager-lane.md`.
+12. Use the optional Release Manager lane only after workers reliably attach PR URLs and mark issues with `release:ready`. Keep it single-writer (`max_concurrent_agents: 1`) and dry-run it before using `--apply`. For high-volume parallel merges, verify a GitHub merge queue is enabled first (`scripts/release_manager.py --check-merge-queue`) so a burst of PRs batches instead of serializing, and re-run the lane to drain and finalize -- or render the scheduled GitHub Action sample (`bootstrap.py --with-release-manager`) to run that drain loop hands-off. See `references/release-manager-lane.md`.
 
 ## Safety defaults
 

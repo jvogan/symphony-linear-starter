@@ -58,7 +58,7 @@ Before installing, make sure you have:
 - **[OpenAI Symphony](https://github.com/openai/symphony)** built locally (the dispatch runtime)
 - **[Linear](https://linear.app)** account with an API key (`LINEAR_API_KEY` in your environment)
 - **[GitHub CLI](https://cli.github.com/)** (`gh`) installed and authenticated (`gh auth login`)
-- **Python 3** and **git**
+- **Python 3.10+** and **git**
 - A target git repo you want to automate
 
 ## Install
@@ -101,6 +101,10 @@ The skill includes five scripts to get a repo ready for Symphony:
 4. **`release_manager.py`** runs the optional single-writer Release Manager lane that queues ready PRs through GitHub Merge Queue / `gh pr merge --auto`. It verifies the merge queue is enabled (`--check-merge-queue`), is safe to re-run (idempotent, finalizes merged issues), and never lets workers race to update `main`.
 5. **`preflight.py`** validates the rendered workflow, routing labels, environment policy, closeout contract, snapshot-promotion safety, guardrails, runbook, learnings scaffold, and repo state before you start a run.
 
+> Run these from a clone of this repo — they use repo-relative script paths:
+> `git clone https://github.com/jvogan/symphony-linear-starter && cd symphony-linear-starter`
+> (Installing the skill with `npx skills add` above is separate — that's so your agent can discover it.)
+
 ```bash
 # 1. Check toolchain
 python3 skills/symphony-linear-orchestrator/scripts/doctor.py --json
@@ -117,8 +121,11 @@ python3 skills/symphony-linear-orchestrator/scripts/bootstrap.py \
   --required-path package.json \
   --write
 
+# After bootstrap: merge .orchestration/AGENTS_ADDITIONS.md into your target
+# repo's AGENTS.md by hand (the script never edits AGENTS.md for you).
+
 # 3. Render or normalize a Linear issue body
-echo '{"title":"Add auth","acceptance":"tests pass","validation":"npm test"}' \
+echo '{"summary":"Add login","acceptance_criteria":["tests pass"],"validation_commands":["npm test"],"touched_areas":["src/auth"],"complexity":"small"}' \
   | python3 skills/symphony-linear-orchestrator/scripts/issue_schema.py render
 
 # 4. Validate before starting
@@ -127,7 +134,14 @@ python3 skills/symphony-linear-orchestrator/scripts/preflight.py \
   --workflow /path/to/repo/.orchestration/wave1.WORKFLOW.md \
   --json
 
-# 5. Dry-run the Release Manager lane before enabling mutations
+# 5. Dispatch the wave — run your built Symphony binary against the rendered
+#    workflow (see https://github.com/openai/symphony for build + exact flags).
+#    Symphony reads the workflow frontmatter and spawns one worker per active
+#    Linear issue; workers open PRs and mark issues release:ready.
+symphony /path/to/repo/.orchestration/wave1.WORKFLOW.md \
+  --logs-root /path/to/repo/.orchestration/logs/wave1
+
+# 6. Dry-run the Release Manager lane before enabling mutations
 python3 skills/symphony-linear-orchestrator/scripts/release_manager.py \
   --workflow /path/to/repo/.orchestration/release-manager.WORKFLOW.md \
   --json
@@ -144,6 +158,21 @@ The skill's [SKILL.md](skills/symphony-linear-orchestrator/SKILL.md) and [refere
 5. The orchestrator updates the repo runbook and learnings log, then promotes stable lessons into durable guidance.
 
 When the optional Release Manager lane is enabled, workers still do not deploy. They attach PR URLs and add a `release:ready` label. A single Release Manager pass owns `main`, queues PRs with `gh pr merge --auto`, closes merged issues, and returns conflicted PRs to the worker queue. It first checks that a GitHub merge queue is enabled — so a burst of PRs batches instead of serializing — and is safe to re-run until the burst drains.
+
+### What's automated vs. operator-driven
+
+"Autonomous looping" applies to the **merge** half. Be clear on which hops run themselves:
+
+| Hop | Who |
+|---|---|
+| Create Linear issues | **Operator** |
+| Dispatch a worker wave | **Operator** (run Symphony; or your own scheduler — not built in) |
+| Worker → branch + PR + `release:ready` | Worker (automated) |
+| Enqueue + merge ready PRs | Release Manager lane / scheduled Action (automated) |
+| Close merged issues → `Done` | Lane (automated) |
+| Repair a blocked/conflicted PR | **Operator** — re-dispatch a worker; the implementation workflow auto-stops when idle and is not running between waves |
+
+So the merge/land/close cycle is hands-off (via the [scheduled trigger](skills/symphony-linear-orchestrator/references/release-manager-lane.md)); **dispatching each new wave is operator- or scheduler-driven**, not built in. To make dispatch recurring too, run the implementation workflow on your own cron/launchd cadence.
 
 Default first-run concurrency is one worker. Scale out only after preflight, issue shaping, and review loops are working cleanly.
 
@@ -194,6 +223,8 @@ and durable learnings for the next wave.
 - **No auto-merge, no snapshot promotion, no background services** in the default workflow
 - **Optional single-writer Release Manager lane** for teams that want autonomous merge/deploy flow without parallel agents racing to update `main`
 - **Merge-queue readiness check** (`--check-merge-queue`, also run in preflight) so a burst of ready PRs batches through GitHub Merge Queue instead of silently degrading to serial auto-merge
+- **Hands-off scheduled trigger** — `bootstrap.py` renders a GitHub Action sample that drains the lane on a cron, concurrency-guarded so ephemeral runners stay single-writer
+- **No Linear? GitHub-native path** — a standalone auto-merge-on-label Action sample (`assets/examples/auto-merge-on-label.yml`) for hands-off batched merging without the orchestration lane ([guide](skills/symphony-linear-orchestrator/references/github-native-merge.md))
 
 ## Related
 

@@ -1,0 +1,110 @@
+# ----------------------------------------------------------------------------
+# Release Manager -- hands-off drain loop (RENDERED SAMPLE; not active here)
+#
+# This file lives under .orchestration/ as a sample. GitHub only runs workflow
+# files from .github/workflows/, so nothing happens until you activate it.
+#
+# Activate (the Action is NOT self-contained -- it runs files from this repo's
+# checkout, so all three must be committed on the branch the schedule runs against):
+#   1. Review this file.
+#   2. Store the Linear key as an ENCRYPTED Actions secret (never inline it):
+#        gh secret set LINEAR_API_KEY --body "<your-linear-api-key>"
+#   3. Vendor the skill so the Action can run it, and commit it:
+#        cp -R <your-skill-checkout>/skills/symphony-linear-orchestrator skills/
+#        git add skills/symphony-linear-orchestrator
+#   4. Commit the rendered lane config the job reads at runtime:
+#        git add .orchestration/release-manager.WORKFLOW.md
+#   5. Put the workflow where GitHub looks, and commit it:
+#        mkdir -p .github/workflows
+#        cp .orchestration/release-manager.gha.yml .github/workflows/release-manager.yml
+#        git add .github/workflows/release-manager.yml
+#   6. If you use a merge queue, your CI MUST also trigger on merge_group or queued
+#      PRs never finish and this loop spins forever. Add to your CI workflow:
+#        on:
+#          pull_request:
+#          merge_group:
+#
+# What it does: runs the single-writer Release Manager lane on a schedule (and
+# on demand), draining ready PRs through the merge queue and finalizing Linear,
+# re-running until the burst is drained. This is a POLL (cron), not a push; for
+# sub-minute landing, drive the same command from a Linear webhook instead.
+# ----------------------------------------------------------------------------
+name: Release Manager (drain loop)
+
+on:
+  schedule:
+    - cron: "__RELEASE_CRON__"   # adjust the cadence to taste
+  workflow_dispatch: {}          # manual "run now" button
+
+# Single-writer guard. A GitHub Actions runner is a fresh host every run, so the
+# lane's per-host file lock CANNOT stop two overlapping runs from both writing to
+# __REQUIRED_BRANCH__. This concurrency group is the cross-run lock that keeps the
+# lane single-writer. cancel-in-progress: false lets an in-flight pass finish
+# (never killed mid-write); a run that arrives while one is active queues behind
+# it. Do not remove this block.
+concurrency:
+  group: release-manager-__REQUIRED_BRANCH__
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # merge commits / branch deletion via gh
+  pull-requests: write   # enable auto-merge / add PRs to the merge queue
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45  # hard ceiling so a stuck queue cannot run forever
+    env:
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+      # gh reads GH_TOKEN. The default GITHUB_TOKEN can enable auto-merge and add
+      # to the queue. Caveat: events from GITHUB_TOKEN do not cascade to other
+      # workflows, but the merge_group build is queue-generated so CI still runs.
+      # If you need the enqueue itself to trigger other workflows, set a PAT
+      # secret (e.g. secrets.RELEASE_PAT) and use it here instead.
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Drain the Release Manager lane until idle
+        run: |
+          set -euo pipefail
+          script="skills/symphony-linear-orchestrator/scripts/release_manager.py"
+          workflow=".orchestration/release-manager.WORKFLOW.md"
+          [ -n "${LINEAR_API_KEY:-}" ] || { echo "::error::LINEAR_API_KEY secret is not set -- run: gh secret set LINEAR_API_KEY"; exit 1; }
+          [ -f "$script" ] || { echo "::error::$script not found -- vendor the skill (commit skills/symphony-linear-orchestrator/) into this repo"; exit 1; }
+          [ -f "$workflow" ] || { echo "::error::$workflow not found -- commit the rendered .orchestration/release-manager.WORKFLOW.md on this branch"; exit 1; }
+          max_passes=20
+          first_inflight=""
+          last_inflight=0
+          for i in $(seq 1 "$max_passes"); do
+            echo "::group::release-manager pass $i"
+            set +e
+            out=$(python3 "$script" --workflow "$workflow" --apply --json)
+            rc=$?
+            set -e
+            printf '%s\n' "$out"
+            echo "::endgroup::"
+            if [ "$rc" -ne 0 ]; then
+              echo "::error::pass $i exited $rc (hard failure or no forward progress); stopping for inspection"
+              exit "$rc"
+            fi
+            drained=$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("drained"))')
+            if [ "$drained" = "True" ]; then
+              echo "burst drained after $i pass(es)"
+              exit 0
+            fi
+            last_inflight=$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("counts",{}).get("in_flight",0))' 2>/dev/null || echo 0)
+            [ -z "$first_inflight" ] && first_inflight="$last_inflight"
+            sleep 60
+          done
+          # Distinguish a still-draining big burst (in_flight dropping) from PRs
+          # genuinely stuck in_flight (count not dropping = likely queue-evicted,
+          # which the lane cannot self-heal). Fail loudly only on the latter.
+          if [ "$last_inflight" -gt 0 ] && [ "$last_inflight" -ge "${first_inflight:-0}" ]; then
+            echo "::error::$last_inflight PR(s) stuck in_flight across $max_passes passes (count not dropping) -- likely queue-evicted; see 'Release Manager lane stalls' in references/recovery-playbook.md"
+            exit 1
+          fi
+          echo "::warning::still draining after $max_passes passes (in_flight is decreasing); continuing on the next scheduled run"
+          exit 0

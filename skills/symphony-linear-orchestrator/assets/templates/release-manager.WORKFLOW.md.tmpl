@@ -27,7 +27,7 @@ release_manager:
   mode: github-merge-queue
   repo: "__GITHUB_REPO__"
   base_branch: "__REQUIRED_BRANCH__"
-  # merge_method: squash       # Optional for repos without a GitHub Merge Queue.
+  # merge_method: squash       # REQUIRED when there is no merge queue (personal repos, Team/Free private). Uncomment for serial auto-merge.
   # require_merge_queue: true  # Refuse to enqueue unless a merge queue is enabled on base_branch.
   ready_states: ["Ready to Merge", "In Review"]
   ready_labels: ["release:ready"]
@@ -73,3 +73,4 @@ python3 skills/symphony-linear-orchestrator/scripts/release_manager.py --workflo
 - If a PR has conflicts or is closed without merge, leave the implementation issue in `Todo` or the configured blocked state so a normal worker can repair it.
 - Keep Linear comments concise. Use `release_manager.comment_mode: none` when the workflow should avoid release comments entirely.
 - Stop after one queue pass. Re-running is safe and expected: it finalizes PRs the queue merged since the last pass, drains issues beyond `max_per_run`, and never re-enqueues an in-flight PR. The orchestrator or a scheduler should run this lane again until the burst is drained.
+- For hands-off operation, activate the rendered trigger sample: set the `LINEAR_API_KEY` Actions secret and copy `.orchestration/release-manager.gha.yml` to `.github/workflows/release-manager.yml`. Its `concurrency:` group keeps the lane single-writer across runs -- do not remove it.
