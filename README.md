@@ -93,12 +93,13 @@ Or copy the skill folder into your project and reference `skills/symphony-linear
 
 ## Getting started
 
-The skill includes four scripts to get a repo ready for Symphony:
+The skill includes five scripts to get a repo ready for Symphony:
 
 1. **`doctor.py`** checks that your local toolchain is ready: `git`, `gh` (installed + authenticated), `bash`, `python3`, `codex`, Symphony, and `LINEAR_API_KEY`.
 2. **`bootstrap.py`** renders a lane-aware workflow, runbook, learnings log, issue template, and guidance additions into the target repo.
 3. **`issue_schema.py`** renders or normalizes canonical Linear issue bodies so the human markdown and `<!-- symphony:schema -->` block stay aligned.
-4. **`preflight.py`** validates the rendered workflow, guardrails, runbook, learnings scaffold, and repo state before you start a run.
+4. **`release_manager.py`** runs the optional single-writer Release Manager lane that queues ready PRs through GitHub Merge Queue / `gh pr merge --auto`.
+5. **`preflight.py`** validates the rendered workflow, routing labels, environment policy, closeout contract, snapshot-promotion safety, guardrails, runbook, learnings scaffold, and repo state before you start a run.
 
 ```bash
 # 1. Check toolchain
@@ -111,6 +112,7 @@ python3 skills/symphony-linear-orchestrator/scripts/bootstrap.py \
   --clone-url git@github.com:owner/repo.git \
   --linear-project-slug proj \
   --lane medium \
+  --with-release-manager \
   --required-path README.md \
   --required-path package.json \
   --write
@@ -124,6 +126,11 @@ python3 skills/symphony-linear-orchestrator/scripts/preflight.py \
   --target-repo /path/to/repo \
   --workflow /path/to/repo/.orchestration/wave1.WORKFLOW.md \
   --json
+
+# 5. Dry-run the Release Manager lane before enabling mutations
+python3 skills/symphony-linear-orchestrator/scripts/release_manager.py \
+  --workflow /path/to/repo/.orchestration/release-manager.WORKFLOW.md \
+  --json
 ```
 
 The skill's [SKILL.md](skills/symphony-linear-orchestrator/SKILL.md) and [reference docs](skills/symphony-linear-orchestrator/references/) walk through the full workflow.
@@ -135,6 +142,8 @@ The skill's [SKILL.md](skills/symphony-linear-orchestrator/SKILL.md) and [refere
 3. Workers complete bounded changes, validate them, and move issues to `In Review`.
 4. The orchestrator reviews worker output, integrates it, and moves issues to `Done`.
 5. The orchestrator updates the repo runbook and learnings log, then promotes stable lessons into durable guidance.
+
+When the optional Release Manager lane is enabled, workers still do not deploy. They attach PR URLs and add a `release:ready` label. A single Release Manager pass owns `main`, queues PRs with `gh pr merge --auto`, closes merged issues, and returns conflicted PRs to the worker queue.
 
 Default first-run concurrency is one worker. Scale out only after preflight, issue shaping, and review loops are working cleanly.
 
@@ -165,7 +174,7 @@ and durable learnings for the next wave.
 |---|---|
 | `skills/symphony-linear-orchestrator/SKILL.md` | Main skill definition |
 | `skills/.../references/` | Operating model, Linear issue contract, workflow spec, onboarding guide, recovery playbook, self-improvement loop, example prompts |
-| `skills/.../scripts/` | `doctor.py`, `bootstrap.py`, `issue_schema.py`, `preflight.py` |
+| `skills/.../scripts/` | `doctor.py`, `bootstrap.py`, `issue_schema.py`, `release_manager.py`, `preflight.py` |
 | `skills/.../assets/templates/` | Workflow, runbook, learnings, issue, guidance, and brief templates |
 | `skills/.../agents/openai.yaml` | Codex agent configuration |
 
@@ -173,14 +182,17 @@ and durable learnings for the next wave.
 
 - **One worker for the first run**, then scale out when the repo and issue graph are proven
 - **Explicit routing lanes** via `sym:small`, `sym:medium`, `sym:large`, and `sym:content`
+- **Explicit campaign metadata** so routing, trust boundary, and closeout ownership are visible in the workflow
 - **`In Review` as the operator gate** — no auto-merge, no auto-Done
 - **Workspace bootstrap assertions** for branch and repo-anchor paths
 - **No-progress guardrails** so stuck runs get requeued instead of burning tokens
+- **Narrow worker environment allowlist** by default: workers receive `LINEAR_API_KEY`, not the entire shell environment
 - **Canonical issue rendering** so the human-readable body and machine-readable schema stay in sync
 - **Self-improving loop** via RUNBOOK.md + LEARNINGS.md with promotion into durable guidance
 - **Bounded issue contract** with acceptance criteria, validation commands, and touched areas
-- **Security/privacy hygiene**: secrets, credentials, and personal data stay out of issue bodies and workflow files
+- **Security/privacy hygiene**: secrets, credentials, and personal data stay out of issue bodies and workflow files; routed Linear issue authors are part of the trusted execution boundary
 - **No auto-merge, no snapshot promotion, no background services** in the default workflow
+- **Optional single-writer Release Manager lane** for teams that want autonomous merge/deploy flow without parallel agents racing to update `main`
 
 ## Related
 

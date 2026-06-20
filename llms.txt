@@ -22,7 +22,7 @@ Developers and operators who want to run autonomous AI agent teams against real 
 
 Plan → Dispatch → Execute → Review → Improve → Done
 
-Default first-run concurrency: 1 worker. Review gate: In Review. No auto-merge.
+Default first-run concurrency: 1 worker. Review gate: In Review. No auto-merge in the default workflow. An optional single-writer Release Manager lane can queue `release:ready` PRs through GitHub Merge Queue / `gh pr merge --auto` after a dry run.
 
 ## Repo structure
 
@@ -31,6 +31,7 @@ Default first-run concurrency: 1 worker. Review gate: In Review. No auto-merge.
 - `skills/symphony-linear-orchestrator/scripts/doctor.py` — check local toolchain readiness
 - `skills/symphony-linear-orchestrator/scripts/bootstrap.py` — render workflow, runbook, learnings, and issue templates into a target repo
 - `skills/symphony-linear-orchestrator/scripts/issue_schema.py` — render or normalize canonical Linear issue bodies
+- `skills/symphony-linear-orchestrator/scripts/release_manager.py` — optional single-writer merge/deploy queue runner
 - `skills/symphony-linear-orchestrator/scripts/preflight.py` — validate a repo is ready for Symphony
 - `skills/symphony-linear-orchestrator/assets/templates/` — workflow, runbook, learnings, issue, guidance, and brief templates
 - `skills/symphony-linear-orchestrator/agents/openai.yaml` — Codex agent configuration

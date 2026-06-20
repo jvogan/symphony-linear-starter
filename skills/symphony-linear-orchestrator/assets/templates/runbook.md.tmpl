@@ -10,6 +10,9 @@ This runbook captures the current operator procedure for `__WORKFLOW_NAME__`.
 - confirm `AGENTS.md` reflects the current repo reality
 - confirm repo guidance and issue templates describe secret and sensitive-data handling
 - confirm workflow branch assertions and required-path anchors still match the repo
+- confirm campaign metadata, routing labels, and closeout instructions still match the intended run
+- confirm only trusted operators can create or edit issues matching the workflow routing label
+- confirm the worker command allowlists only the environment variables this run needs
 - confirm the first execution wave fills worker slots without file overlap
 
 ## During a run
@@ -25,6 +28,14 @@ This runbook captures the current operator procedure for `__WORKFLOW_NAME__`.
 - promote stable learnings into `AGENTS.md`, the workflow, or the issue template
 - clear or revise suppressions only after the ticket or workflow has materially changed
 - remove stale notes that no longer reflect reality
+
+## Release Manager lane
+
+- normal workers must not merge, rebase, push, or deploy `__REQUIRED_BRANCH__`
+- workers ready for autonomous release should attach a PR URL and add `release:ready`
+- dry-run first: `python3 skills/symphony-linear-orchestrator/scripts/release_manager.py --workflow .orchestration/release-manager.WORKFLOW.md --json`
+- apply only after dry-run output is sane: `python3 skills/symphony-linear-orchestrator/scripts/release_manager.py --workflow .orchestration/release-manager.WORKFLOW.md --apply --json`
+- conflicted or closed-unmerged PRs return to the worker queue for repair
 
 ## Repo-specific checks
 
