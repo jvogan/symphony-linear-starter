@@ -28,6 +28,7 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 10. Treat `In Review` as the orchestrator gate. Review worker output, integrate the result, then move the issue to `Done`.
 11. After each execution wave, update `.orchestration/RUNBOOK.md` and `.orchestration/LEARNINGS.md`, then promote stable learnings into `AGENTS.md`, the issue template, or workflow defaults.
 12. Use the optional Release Manager lane only after workers reliably attach PR URLs and mark issues with `release:ready`. Keep it single-writer (`max_concurrent_agents: 1`) and dry-run it before using `--apply`. For high-volume parallel merges, verify a GitHub merge queue is enabled first (`scripts/release_manager.py --check-merge-queue`) so a burst of PRs batches instead of serializing, and re-run the lane to drain and finalize -- or render the scheduled GitHub Action sample (`bootstrap.py --with-release-manager`) to run that drain loop hands-off. See `references/release-manager-lane.md`.
+13. For autonomous, goal-directed running (deciding the next wave from a goal, not just executing one wave), use the optional goal loop. Render it with `bootstrap.py --with-goal-loop`, init the budget ledger with `scripts/goal_state.py --init`, and have an orchestrator agent run the per-lap prompt (`.orchestration/goal-loop.PROMPT.md`). Every lap consults `scripts/goal_state.py`, which returns `continue`/`done`/`stuck` from real Linear state plus hard budget caps -- obey `stuck` and never code around it. Default posture is gated (the orchestrator reviews `In Review` and owns the merge); it flips to auto (via the Release Manager lane) or a per-label mix. See `references/autonomous-goal-loop.md` and `references/planner-lane.md`.
 
 ## Safety defaults
 
@@ -36,6 +37,7 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 - Do not auto-merge.
 - Do not default to snapshot promotion or automatic PR creation.
 - If enabling autonomous deploys, route them through the Release Manager lane; normal workers must not push, rebase, merge, or deploy `main`.
+- Treat the autonomous goal loop as opt-in and capped. The budget ledger's caps (`max_laps`, `max_dispatched`, `max_planner_depth`, `max_wall_clock_minutes`) are hard stops, and a `stuck` verdict from `scripts/goal_state.py` always stops the loop and escalates to a human -- never override it. Do not enable auto-merge in the loop without real validation gates (required status checks or a merge queue) on the base branch. Keep planner recursion shallow.
 - Do not introduce machine-specific background services into the target repo.
 - Do not inherit the whole shell environment by default. Use an explicit Codex environment allowlist and add variables only when the workflow requires them.
 - Do not put secrets, credentials, tokens, session cookies, personal data, or raw customer payloads into Linear issue bodies, workflow files, learnings, or worker comments.
@@ -50,6 +52,8 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 - Read `references/linear-contract.md` before writing issue bodies or dependency chains.
 - Read `references/symphony-workflow.md` before rendering or editing a workflow.
 - Read `references/release-manager-lane.md` before enabling autonomous PR merge/deploy flow.
+- Read `references/autonomous-goal-loop.md` before running the goal loop for autonomous, goal-directed work; it covers the convergence/budget spine, the three layers, and the safety requirements.
+- Read `references/planner-lane.md` before dispatching planners that shape the next wave; it covers the recursion fences.
 - Read `references/repo-onboarding.md` when reviewing the target repo's `AGENTS.md` and local guidance.
 - Read `references/recovery-playbook.md` when a worker stalls, clones the wrong branch, or drifts from validation.
 - Read `references/self-improvement-loop.md` after each run when you need to convert operator observations into durable runbooks, learnings, and better defaults.

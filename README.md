@@ -93,13 +93,14 @@ Or copy the skill folder into your project and reference `skills/symphony-linear
 
 ## Getting started
 
-The skill includes five scripts to get a repo ready for Symphony:
+The skill includes six scripts to get a repo ready for Symphony:
 
 1. **`doctor.py`** checks that your local toolchain is ready: `git`, `gh` (installed + authenticated), `bash`, `python3`, `codex`, Symphony, and `LINEAR_API_KEY`.
 2. **`bootstrap.py`** renders a lane-aware workflow, runbook, learnings log, issue template, and guidance additions into the target repo.
 3. **`issue_schema.py`** renders or normalizes canonical Linear issue bodies so the human markdown and `<!-- symphony:schema -->` block stay aligned.
 4. **`release_manager.py`** runs the optional single-writer Release Manager lane that queues ready PRs through GitHub Merge Queue / `gh pr merge --auto`. It verifies the merge queue is enabled (`--check-merge-queue`), is safe to re-run (idempotent, finalizes merged issues), and never lets workers race to update `main`.
 5. **`preflight.py`** validates the rendered workflow, routing labels, environment policy, closeout contract, snapshot-promotion safety, guardrails, runbook, learnings scaffold, and repo state before you start a run.
+6. **`goal_state.py`** is the convergence + budget spine of the optional [autonomous goal loop](skills/symphony-linear-orchestrator/references/autonomous-goal-loop.md). It reads real Linear state plus a budget ledger and returns one verdict — `continue` (here's the next wave), `done`, or `stuck` (a budget cap hit or work stalled → stop and escalate) — so unattended, goal-directed running has a hard brake instead of a hope.
 
 > Run these from a clone of this repo — they use repo-relative script paths:
 > `git clone https://github.com/jvogan/symphony-linear-starter && cd symphony-linear-starter`
@@ -172,9 +173,40 @@ When the optional Release Manager lane is enabled, workers still do not deploy. 
 | Close merged issues → `Done` | Lane (automated) |
 | Repair a blocked/conflicted PR | **Operator** — re-dispatch a worker; the implementation workflow auto-stops when idle and is not running between waves |
 
-So the merge/land/close cycle is hands-off (via the [scheduled trigger](skills/symphony-linear-orchestrator/references/release-manager-lane.md)); **dispatching each new wave is operator- or scheduler-driven**, not built in. To make dispatch recurring too, run the implementation workflow on your own cron/launchd cadence.
+So the merge/land/close cycle is hands-off (via the [scheduled trigger](skills/symphony-linear-orchestrator/references/release-manager-lane.md)); **dispatching each new wave is operator- or scheduler-driven**, not built in by default. To close that gap, enable the optional autonomous goal loop below.
 
 Default first-run concurrency is one worker. Scale out only after preflight, issue shaping, and review loops are working cleanly.
+
+### Autonomous goal loop (optional)
+
+The base skill executes one wave; the **goal loop** decides the *next* wave from a goal and keeps going, so the system can pursue a goal for hours instead of stopping after one wave. It is opt-in and capped.
+
+The one judgment that keeps unattended autonomy from running away — *more, done, or stuck?* — is auditable code (`goal_state.py`), not an improvised vibe. Each lap the orchestrator reads the verdict and takes one action: dispatch the next wave, activate backlog, wait, or **stop** (on `done` or `stuck`). Hard budget caps (`max_laps`, `max_dispatched`, `max_planner_depth`, `max_wall_clock_minutes`) bind even when the goal is unfinished, and a `stuck` verdict always escalates to a human.
+
+It ships in three layers:
+
+| Layer | What it is |
+|---|---|
+| **Brain** | An orchestrator agent (Claude Code `/loop` or a Codex cron) following the rendered `goal-loop.PROMPT.md` — plan → dispatch → review → re-plan, one lap per heartbeat. |
+| **Merge-trigger** | A `push: main` GitHub Action that runs the convergence check when work lands and reports where the goal stands (the clock, not the brain). |
+| **Planner-lane** | A dispatchable `sym:planner` role that emits the next wave's issues when planning itself needs fan-out — fenced hard against recursion. |
+
+Default posture is **gated** (the orchestrator reviews `In Review` and owns each merge). Flip it to **auto** (wire the Release Manager lane so `release:ready` PRs merge unattended — only with real validation gates) or a **per-label mix**. The convergence verdict and budget caps are identical across postures.
+
+```bash
+# Render the loop artifacts, then init the budget ledger:
+python3 skills/symphony-linear-orchestrator/scripts/bootstrap.py \
+  --target-repo /path/to/repo --workflow-name wave1 \
+  --clone-url git@github.com:owner/repo.git --linear-project-slug proj \
+  --with-goal-loop --goal "Ship the X milestone" --write
+
+python3 skills/symphony-linear-orchestrator/scripts/goal_state.py \
+  --ledger /path/to/repo/.orchestration/goal-state.json --init \
+  --goal "Ship the X milestone" --project-slug proj
+# Then hand .orchestration/goal-loop.PROMPT.md to your orchestrator agent.
+```
+
+See the [autonomous goal loop guide](skills/symphony-linear-orchestrator/references/autonomous-goal-loop.md) for the full model and safety requirements.
 
 ## Example prompts
 
@@ -202,9 +234,9 @@ and durable learnings for the next wave.
 | Path | Contents |
 |---|---|
 | `skills/symphony-linear-orchestrator/SKILL.md` | Main skill definition |
-| `skills/.../references/` | Operating model, Linear issue contract, workflow spec, onboarding guide, recovery playbook, self-improvement loop, example prompts |
-| `skills/.../scripts/` | `doctor.py`, `bootstrap.py`, `issue_schema.py`, `release_manager.py`, `preflight.py` |
-| `skills/.../assets/templates/` | Workflow, runbook, learnings, issue, guidance, and brief templates |
+| `skills/.../references/` | Operating model, Linear issue contract, workflow spec, onboarding guide, recovery playbook, self-improvement loop, autonomous goal loop, planner lane, example prompts |
+| `skills/.../scripts/` | `doctor.py`, `bootstrap.py`, `issue_schema.py`, `release_manager.py`, `preflight.py`, `goal_state.py` |
+| `skills/.../assets/templates/` | Workflow, runbook, learnings, issue, guidance, brief, release-manager, goal-loop, and planner templates |
 | `skills/.../agents/openai.yaml` | Codex agent configuration |
 
 ## Design defaults
@@ -225,6 +257,7 @@ and durable learnings for the next wave.
 - **Merge-queue readiness check** (`--check-merge-queue`, also run in preflight) so a burst of ready PRs batches through GitHub Merge Queue instead of silently degrading to serial auto-merge
 - **Hands-off scheduled trigger** — `bootstrap.py` renders a GitHub Action sample that drains the lane on a cron, concurrency-guarded so ephemeral runners stay single-writer
 - **No Linear? GitHub-native path** — a standalone auto-merge-on-label Action sample (`assets/examples/auto-merge-on-label.yml`) for hands-off batched merging without the orchestration lane ([guide](skills/symphony-linear-orchestrator/references/github-native-merge.md))
+- **Optional autonomous goal loop** — `bootstrap.py --with-goal-loop` renders a brain prompt, a merge-trigger Action, and a planner workflow that pursue a goal across many waves, gated by `goal_state.py`'s convergence + hard budget caps so unattended running has a real brake ([guide](skills/symphony-linear-orchestrator/references/autonomous-goal-loop.md))
 
 ## Related
 

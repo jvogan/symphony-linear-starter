@@ -127,6 +127,9 @@ def main() -> int:
     parser.add_argument("--with-release-manager", action="store_true", help="Also render a single-writer Release Manager lane template.")
     parser.add_argument("--github-repo", help="GitHub repo in OWNER/REPO form for the Release Manager lane. Defaults to inferring from --clone-url.")
     parser.add_argument("--release-cron", default="*/10 * * * *", help="Cron schedule for the rendered Release Manager GitHub Action sample (used with --with-release-manager).")
+    parser.add_argument("--with-goal-loop", action="store_true", help="Also render the autonomous goal-loop artifacts (brain prompt, merge-trigger Action, planner workflow).")
+    parser.add_argument("--goal", default="Describe the operator goal here.", help="Goal statement embedded in the rendered goal-loop prompt (used with --with-goal-loop).")
+    parser.add_argument("--goal-heartbeat-cron", default="0 */6 * * *", help="Cron schedule for the goal-loop merge-trigger's stall fallback (used with --with-goal-loop).")
     parser.add_argument("--write", action="store_true", help="Write files instead of dry-running.")
     parser.add_argument("--force", action="store_true", help="Overwrite rendered files if they already exist.")
     args = parser.parse_args()
@@ -169,6 +172,8 @@ def main() -> int:
         "REQUIRED_PATHS_JSON": json.dumps(required_paths),
         "GITHUB_REPO": args.github_repo or infer_github_repo(args.clone_url),
         "RELEASE_CRON": args.release_cron,
+        "GOAL": args.goal,
+        "GOAL_HEARTBEAT_CRON": args.goal_heartbeat_cron,
     }
 
     if args.with_release_manager and not values["GITHUB_REPO"]:
@@ -186,6 +191,10 @@ def main() -> int:
     if args.with_release_manager:
         outputs[orchestration_dir / "release-manager.WORKFLOW.md"] = TEMPLATE_DIR / "release-manager.WORKFLOW.md.tmpl"
         outputs[orchestration_dir / "release-manager.gha.yml"] = TEMPLATE_DIR / "release-manager.gha.yml.tmpl"
+    if args.with_goal_loop:
+        outputs[orchestration_dir / "goal-loop.PROMPT.md"] = TEMPLATE_DIR / "goal-loop.PROMPT.md.tmpl"
+        outputs[orchestration_dir / "goal-loop.gha.yml"] = TEMPLATE_DIR / "goal-loop.gha.yml.tmpl"
+        outputs[orchestration_dir / "planner.WORKFLOW.md"] = TEMPLATE_DIR / "planner.WORKFLOW.md.tmpl"
 
     manifest = []
     for destination, template_path in outputs.items():
@@ -211,6 +220,9 @@ def main() -> int:
                 "release_manager": args.with_release_manager,
                 "github_repo": values["GITHUB_REPO"] or None,
                 "release_cron": args.release_cron if args.with_release_manager else None,
+                "goal_loop": args.with_goal_loop,
+                "goal": args.goal if args.with_goal_loop else None,
+                "goal_heartbeat_cron": args.goal_heartbeat_cron if args.with_goal_loop else None,
                 "files": manifest,
             },
             indent=2,

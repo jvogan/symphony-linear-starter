@@ -1,0 +1,115 @@
+# ----------------------------------------------------------------------------
+# Goal loop -- merge-trigger / convergence reporter (RENDERED SAMPLE; not active)
+#
+# This is the "clock" of the autonomous goal loop (references/autonomous-goal-loop.md):
+# whenever work lands on __REQUIRED_BRANCH__ it runs the convergence check and
+# reports where the goal stands, plus a slow heartbeat as a stall fallback. It is
+# NOT the brain -- it reports the verdict (and can optionally wake a planner); it
+# does not dispatch workers or merge anything.
+#
+# It runs goal_state.py READ-ONLY (no --record): it never commits the ledger back,
+# so it cannot recurse by pushing to __REQUIRED_BRANCH__, and durable lap/stall
+# accounting stays owned by the brain loop. A `stuck` verdict fails the run so you
+# actually notice; `done`/`continue` pass.
+#
+# This file lives under .orchestration/ as a sample. GitHub only runs workflow
+# files from .github/workflows/, so nothing happens until you activate it.
+#
+# Activate (the Action runs files from this repo's checkout, so all must be committed
+# on __REQUIRED_BRANCH__):
+#   1. Review this file.
+#   2. Store the Linear key as an ENCRYPTED Actions secret (never inline it):
+#        gh secret set LINEAR_API_KEY --body "<your-linear-api-key>"
+#   3. Vendor the skill and commit it:
+#        cp -R <your-skill-checkout>/skills/symphony-linear-orchestrator skills/
+#        git add skills/symphony-linear-orchestrator
+#   4. Commit the budget ledger the check reads (create it first with
+#      goal_state.py --init; see references/autonomous-goal-loop.md):
+#        git add .orchestration/goal-state.json
+#   5. Put the workflow where GitHub looks, and commit it:
+#        mkdir -p .github/workflows
+#        cp .orchestration/goal-loop.gha.yml .github/workflows/goal-loop.yml
+#        git add .github/workflows/goal-loop.yml
+# ----------------------------------------------------------------------------
+name: Goal loop (convergence report)
+
+on:
+  push:
+    branches: ["__REQUIRED_BRANCH__"]
+    # Ignore the ledger and orchestration bookkeeping so a brain that commits
+    # progress does not retrigger this report in a loop.
+    paths-ignore:
+      - ".orchestration/goal-state.json"
+      - ".orchestration/LEARNINGS.md"
+      - ".orchestration/RUNBOOK.md"
+      - ".orchestration/*.BRIEF.md"
+  schedule:
+    - cron: "__GOAL_HEARTBEAT_CRON__"   # slow stall fallback if nothing pushes
+  workflow_dispatch: {}                 # manual "check now" button
+
+# One report at a time per branch. cancel-in-progress: true is safe here because
+# the job is a read-only check with no side effects to interrupt -- a newer push
+# simply supersedes an in-flight report.
+concurrency:
+  group: goal-loop-__REQUIRED_BRANCH__
+  cancel-in-progress: true
+
+permissions:
+  contents: read   # read-only reporter: it does not write to the repo
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Report goal convergence
+        run: |
+          set -euo pipefail
+          script="skills/symphony-linear-orchestrator/scripts/goal_state.py"
+          ledger=".orchestration/goal-state.json"
+          [ -n "${LINEAR_API_KEY:-}" ] || { echo "::error::LINEAR_API_KEY secret is not set -- run: gh secret set LINEAR_API_KEY"; exit 1; }
+          [ -f "$script" ] || { echo "::error::$script not found -- vendor the skill (commit skills/symphony-linear-orchestrator/) into this repo"; exit 1; }
+          [ -f "$ledger" ] || { echo "::error::$ledger not found -- create it with goal_state.py --init and commit it (see references/autonomous-goal-loop.md)"; exit 1; }
+          set +e
+          out=$(python3 "$script" --ledger "$ledger" --json)
+          rc=$?
+          set -e
+          printf '%s\n' "$out"
+          # Handle a non-zero exit FIRST, before parsing. rc is 2 on stuck (valid
+          # JSON), but a config/network failure exits non-zero with empty or
+          # non-JSON output -- parsing that under `set -e` would crash with a
+          # JSONDecodeError and mask the real failure. Dump the raw output to the
+          # summary and surface the exit code so the operator is paged.
+          if [ "$rc" -ne 0 ]; then
+            {
+              echo "## Goal loop: needs attention (exit $rc)"
+              echo ""
+              echo '```json'
+              printf '%s\n' "$out" | head -c 1000
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::goal loop check failed (exit $rc) -- stuck or misconfigured; a human needs to decide the next move"
+            exit "$rc"
+          fi
+          # rc==0 here: verdict is continue or done, so $out is valid JSON to parse.
+          verdict=$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("verdict"))')
+          action=$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("action"))')
+          reason=$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("reason"))')
+          {
+            echo "## Goal loop: $verdict ($action)"
+            echo ""
+            echo "$reason"
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Next action is advisory here; the brain loop acts on it. To make this
+          # Action WAKE A PLANNER instead of only reporting, add a step that, when
+          # action is dispatch/activate_backlog and no sym:planner issue is open,
+          # creates one in Linear (idempotent by that open-issue check). It is left
+          # opt-in so a push cannot silently spawn a backlog -- see
+          # references/planner-lane.md, "Waking the planner from CI".
+          echo "goal loop reported: $verdict ($action)"

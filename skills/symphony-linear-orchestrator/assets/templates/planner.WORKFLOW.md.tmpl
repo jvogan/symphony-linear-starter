@@ -1,0 +1,131 @@
+---
+tracker:
+  kind: linear
+  api_key: $LINEAR_API_KEY
+  project_slug: "__LINEAR_PROJECT_SLUG__"
+  issue_filters:
+    # Planner issues carry sym:planner. A planner shapes the next wave of work;
+    # it does NOT implement. Keep this label off implementation issues.
+    labels: ["sym:planner"]
+  active_states:
+    - Todo
+    - In Progress
+  terminal_states:
+    - Done
+    - Closed
+    - Cancelled
+    - Canceled
+    - Duplicate
+
+campaign:
+  mode: orchestrator-review
+  routing_label: "sym:planner"
+  trust: trusted-operators
+  integration_owner: orchestrator
+
+workspace:
+  root: $SYMPHONY_WORKSPACES_ROOT
+  assertions:
+    required_branch: "__REQUIRED_BRANCH__"
+    required_paths: __REQUIRED_PATHS_JSON__
+
+# Recursion fence. A planner that shapes more planners is unbounded; these caps
+# plus the convergence gate in the prompt are what keep planning from running
+# away. Keep planner depth shallow.
+planner:
+  max_issues_per_plan: 5
+  max_planner_depth: 2
+
+guardrails:
+  no_progress:
+    enabled: true
+    token_thresholds:
+      small: 1000000
+      medium: 1500000
+      large: 2000000
+    minutes_thresholds:
+      small: 10
+      medium: 15
+      large: 20
+    min_turns_before_stop: 1
+    retry_limit: 1
+
+hooks:
+  after_create: |
+    rm -rf ./* ./.[!.]* 2>/dev/null || true
+    git clone --depth 1 "__CLONE_URL__" . || {
+      git clone --depth 1 "__CLONE_URL__" repo
+      bash -c 'shopt -s dotglob && mv repo/* repo/.git .' 2>/dev/null
+      rm -rf repo
+    }
+
+agent:
+  max_concurrent_agents: 1
+  max_turns: 15
+  auto_stop_when_idle: true
+  idle_grace_checks: 1
+
+codex:
+  command: 'CODEX_HOME="$SYMPHONY_CODEX_HOME" codex --model gpt-5.4 --config ''shell_environment_policy.include_only=["LINEAR_API_KEY"]'' --config model_reasoning_effort=high app-server'
+  approval_policy: never
+  thread_sandbox: workspace-write
+---
+
+You are a **planner** for this repository, working Linear issue {{ issue.identifier }}.
+
+Your job is to shape the **next wave of implementation work** toward the goal --
+not to write product code. You read the goal and the current state, then emit
+bounded, validatable Linear issues that ordinary workers can pick up.
+
+Title: {{ issue.title }}
+
+Body:
+{{ issue.description }}
+
+## Before you plan: check convergence
+
+The goal loop has a hard budget. Read it first and respect the verdict:
+
+```bash
+python3 skills/symphony-linear-orchestrator/scripts/goal_state.py \
+  --ledger .orchestration/goal-state.json --json
+```
+
+- If the verdict is `done` or `stuck`, **do not create issues.** Leave a comment
+  explaining what you saw (the reason and the budget snapshot), move this issue
+  to `In Review`, and stop. Piling on more work when the loop wants to stop is
+  exactly the runaway this gate prevents.
+- If `budget.planner_depth` is at or above `max_planner_depth`, **do not create
+  any `sym:planner` issues** -- shape only implementation issues, or stop. This is
+  the recursion fence; honor it.
+
+## How to plan
+
+1. Read the goal/brief, the repo `AGENTS.md` chain, and the current open Linear
+   issues so you do not duplicate or contradict existing work.
+2. Decompose the next increment toward the goal into **at most
+   `planner.max_issues_per_plan` issues**. Each must be bounded, independently
+   validatable, and follow `references/linear-contract.md`.
+3. Render each issue body with `issue_schema.py` so the human sections and the
+   `<!-- symphony:schema -->` block stay aligned:
+   ```bash
+   echo '{"summary":"...","acceptance_criteria":["..."],"validation_commands":["..."],"touched_areas":["..."],"complexity":"small"}' \
+     | python3 skills/symphony-linear-orchestrator/scripts/issue_schema.py render
+   ```
+4. Create the issues in project `__LINEAR_PROJECT_SLUG__` with the right routing
+   label (e.g. `sym:small` / `sym:medium` / `sym:large`). Put them in `Backlog`
+   so the brain loop activates them deliberately -- do not self-activate a wave.
+5. Set real `Dependencies` so the loop can order the work instead of blocking on
+   one giant ticket.
+
+## Hard rules
+
+- Do not write or merge product code. You produce issues, not PRs.
+- Stay within `max_issues_per_plan` per run. A bigger plan is a sign the
+  increment is too large -- split it across future planner laps instead.
+- Do not create `sym:planner` issues beyond `max_planner_depth`.
+- Keep new work pointed at the goal; do not invent scope the goal did not ask for.
+- Never paste secrets, tokens, session cookies, personal data, or raw customer
+  payloads into issue bodies or comments.
+- When done, leave a concise comment listing the issues you created (identifiers)
+  and move this planner issue to `In Review` for the orchestrator to confirm.
