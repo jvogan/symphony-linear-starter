@@ -27,7 +27,7 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 9. Keep the workflow's `campaign` metadata aligned with the worker prompt: the default mode is `orchestrator-review`, workers move completed issues to `In Review`, and the orchestrator integrates before moving issues to `Done`.
 10. Treat `In Review` as the orchestrator gate. Review worker output, integrate the result, then move the issue to `Done`.
 11. After each execution wave, update `.orchestration/RUNBOOK.md` and `.orchestration/LEARNINGS.md`, then promote stable learnings into `AGENTS.md`, the issue template, or workflow defaults.
-12. Use the optional Release Manager lane only after workers reliably attach PR URLs and mark issues with `release:ready`. Keep it single-writer (`max_concurrent_agents: 1`) and dry-run it before using `--apply`.
+12. Use the optional Release Manager lane only after workers reliably attach PR URLs and mark issues with `release:ready`. Keep it single-writer (`max_concurrent_agents: 1`) and dry-run it before using `--apply`. For high-volume parallel merges, verify a GitHub merge queue is enabled first (`scripts/release_manager.py --check-merge-queue`) so a burst of PRs batches instead of serializing, and re-run the lane to drain and finalize. See `references/release-manager-lane.md`.
 
 ## Safety defaults
 

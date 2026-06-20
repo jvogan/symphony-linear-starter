@@ -98,7 +98,7 @@ The skill includes five scripts to get a repo ready for Symphony:
 1. **`doctor.py`** checks that your local toolchain is ready: `git`, `gh` (installed + authenticated), `bash`, `python3`, `codex`, Symphony, and `LINEAR_API_KEY`.
 2. **`bootstrap.py`** renders a lane-aware workflow, runbook, learnings log, issue template, and guidance additions into the target repo.
 3. **`issue_schema.py`** renders or normalizes canonical Linear issue bodies so the human markdown and `<!-- symphony:schema -->` block stay aligned.
-4. **`release_manager.py`** runs the optional single-writer Release Manager lane that queues ready PRs through GitHub Merge Queue / `gh pr merge --auto`.
+4. **`release_manager.py`** runs the optional single-writer Release Manager lane that queues ready PRs through GitHub Merge Queue / `gh pr merge --auto`. It verifies the merge queue is enabled (`--check-merge-queue`), is safe to re-run (idempotent, finalizes merged issues), and never lets workers race to update `main`.
 5. **`preflight.py`** validates the rendered workflow, routing labels, environment policy, closeout contract, snapshot-promotion safety, guardrails, runbook, learnings scaffold, and repo state before you start a run.
 
 ```bash
@@ -143,7 +143,7 @@ The skill's [SKILL.md](skills/symphony-linear-orchestrator/SKILL.md) and [refere
 4. The orchestrator reviews worker output, integrates it, and moves issues to `Done`.
 5. The orchestrator updates the repo runbook and learnings log, then promotes stable lessons into durable guidance.
 
-When the optional Release Manager lane is enabled, workers still do not deploy. They attach PR URLs and add a `release:ready` label. A single Release Manager pass owns `main`, queues PRs with `gh pr merge --auto`, closes merged issues, and returns conflicted PRs to the worker queue.
+When the optional Release Manager lane is enabled, workers still do not deploy. They attach PR URLs and add a `release:ready` label. A single Release Manager pass owns `main`, queues PRs with `gh pr merge --auto`, closes merged issues, and returns conflicted PRs to the worker queue. It first checks that a GitHub merge queue is enabled — so a burst of PRs batches instead of serializing — and is safe to re-run until the burst drains.
 
 Default first-run concurrency is one worker. Scale out only after preflight, issue shaping, and review loops are working cleanly.
 
@@ -193,6 +193,7 @@ and durable learnings for the next wave.
 - **Security/privacy hygiene**: secrets, credentials, and personal data stay out of issue bodies and workflow files; routed Linear issue authors are part of the trusted execution boundary
 - **No auto-merge, no snapshot promotion, no background services** in the default workflow
 - **Optional single-writer Release Manager lane** for teams that want autonomous merge/deploy flow without parallel agents racing to update `main`
+- **Merge-queue readiness check** (`--check-merge-queue`, also run in preflight) so a burst of ready PRs batches through GitHub Merge Queue instead of silently degrading to serial auto-merge
 
 ## Related
 

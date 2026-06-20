@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -67,11 +68,58 @@ def extract_int(text: str, key: str) -> int | None:
         return None
 
 
+def extract_named_block(text: str, name: str) -> str:
+    match = re.search(rf"^{re.escape(name)}:\s*\n(?P<body>(?:[ \t]+[^\n]*\n?)+)", text, re.MULTILINE)
+    return match.group("body") if match else ""
+
+
 def extract_campaign_field(text: str, field: str) -> str | None:
-    match = re.search(r"^campaign:\s*\n(?P<body>(?:[ \t]+[^\n]*\n?)+)", text, re.MULTILINE)
-    if not match:
-        return None
-    return extract_scalar(match.group("body"), field)
+    body = extract_named_block(text, "campaign")
+    return extract_scalar(body, field) if body else None
+
+
+def check_merge_queue_ready(release_repo: str | None, base_branch: str) -> dict:
+    """Live readiness probe via release_manager.py --check-merge-queue.
+
+    Returns {"enabled": True|False|None, "detail": str}. Reuses the single
+    GraphQL implementation in release_manager.py rather than duplicating it.
+    """
+    if not (release_repo and "/" in release_repo):
+        return {"enabled": None, "detail": "release_manager.repo must be OWNER/REPO to check the merge queue"}
+    if shutil.which("gh") is None:
+        return {"enabled": None, "detail": "gh is not installed"}
+    script_path = Path(__file__).resolve().parent / "release_manager.py"
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(script_path),
+                "--check-merge-queue",
+                "--repo",
+                release_repo,
+                "--base-branch",
+                base_branch,
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+    except subprocess.TimeoutExpired:
+        return {"enabled": None, "detail": "merge-queue check timed out after 60s"}
+    try:
+        payload = json.loads(proc.stdout)
+    except (json.JSONDecodeError, AttributeError):
+        return {"enabled": None, "detail": (proc.stderr or proc.stdout).strip()[:200] or "merge-queue check failed"}
+    status = payload.get("merge_queue") if isinstance(payload, dict) else None
+    if not isinstance(status, dict):
+        return {"enabled": None, "detail": "no status returned"}
+    # Carry the enriched diagnosis (present only when no queue) so preflight can
+    # report WHY there is no queue and HOW BAD it is, instead of a fixed string.
+    if isinstance(payload.get("diagnosis"), str):
+        status = {**status, "diagnosis": payload["diagnosis"]}
+    return status
 
 
 def extract_required_branch(text: str) -> str | None:
@@ -258,7 +306,10 @@ def main() -> int:
             results.append(make_result("closeout_contract", "skip", "skipped because campaign integration owner is missing"))
 
         if release_manager_mode:
-            release_repo = extract_scalar(workflow_text, "repo")
+            release_block = extract_named_block(workflow_text, "release_manager")
+            release_repo = extract_scalar(release_block, "repo")
+            release_mode = extract_scalar(release_block, "mode")
+            release_base_branch = extract_scalar(release_block, "base_branch") or "main"
             if release_repo and "/" in release_repo:
                 results.append(make_result("release_manager_repo", "pass", f"release-manager repo is {release_repo}"))
             else:
@@ -267,6 +318,22 @@ def main() -> int:
                 results.append(make_result("release_manager_contract", "pass", "release-manager queue states, labels, and lock are configured"))
             else:
                 results.append(make_result("release_manager_contract", "fail", "release-manager lane is missing ready_states, ready_labels, or lock_dir"))
+
+            if release_mode != "github-merge-queue":
+                results.append(make_result("release_manager_merge_queue", "skip", f"release_manager.mode is {release_mode or 'unset'}; merge-queue readiness check applies to github-merge-queue mode"))
+            else:
+                queue_status = check_merge_queue_ready(release_repo, release_base_branch)
+                enabled = queue_status.get("enabled")
+                if enabled is True:
+                    results.append(make_result("release_manager_merge_queue", "pass", f"GitHub merge queue is enabled on {release_base_branch}"))
+                elif enabled is False:
+                    diagnosis = queue_status.get("diagnosis") or (
+                        f"mode is github-merge-queue but no merge queue is enabled on {release_base_branch}; "
+                        "a PR burst will fall back to serial auto-merge — see references/release-manager-lane.md"
+                    )
+                    results.append(make_result("release_manager_merge_queue", "warn", diagnosis))
+                else:
+                    results.append(make_result("release_manager_merge_queue", "skip", f"could not verify merge queue ({queue_status.get('detail', 'unknown')}); run release_manager.py --check-merge-queue manually"))
 
         required_branch = extract_required_branch(workflow_text)
         repo_branch = current_branch(target_repo)
