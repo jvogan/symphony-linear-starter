@@ -10,7 +10,9 @@
 # this repo. To use it in YOUR repo:
 #   1. Settings -> General -> enable "Allow auto-merge"
 #      (and ideally enable a merge queue so a BURST batches instead of serializing
-#       -- see references/release-manager-lane.md, "Verify and enable").
+#       -- see references/release-manager-lane.md, "Verify and enable"). If that
+#       queue has required checks running on merge_group, also set an AUTOMERGE_PAT
+#       secret (see the env note below) or queued PRs never merge.
 #   2. Create a `release:ready` label in your repo (Issues/PRs -> Labels).
 #   3. Copy this file to .github/workflows/auto-merge-on-label.yml and commit it.
 #
@@ -38,10 +40,16 @@ jobs:
     steps:
       - name: Enable auto-merge (joins the merge queue if one is configured)
         env:
-          # GITHUB_TOKEN can enable auto-merge. If you need the enqueue to trigger
-          # OTHER workflows, use a PAT secret instead -- token events do not
-          # cascade, though the merge_group build is queue-generated so CI runs.
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # IMPORTANT: if your branch uses a merge queue whose required checks run
+          # on `merge_group`, you MUST enqueue with a PAT -- not GITHUB_TOKEN.
+          # Events from GITHUB_TOKEN do not cascade, so a token-driven enqueue never
+          # triggers the queue's merge_group CI; the PRs then sit in the queue until
+          # it times out and never merge. Set a repo or
+          # fine-grained PAT secret with contents + pull-requests write (named
+          # AUTOMERGE_PAT below) and it is used automatically. Plain GITHUB_TOKEN is
+          # only safe with NO merge queue (or a queue with no required merge_group
+          # checks), where there is no merge_group CI to trigger.
+          GH_TOKEN: ${{ secrets.AUTOMERGE_PAT || secrets.GITHUB_TOKEN }}
         # --squash is the method for the no-queue fallback; with a merge queue the
         # queue's configured method applies. Change it to match your repo's allowed
         # merge methods (merge | squash | rebase).

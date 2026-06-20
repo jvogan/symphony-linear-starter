@@ -153,12 +153,13 @@ class ReleaseManagerTests(unittest.TestCase):
                 "headRefOid": "abc",
                 "baseRefName": "main",
             }
-            release_manager.gh_enqueue = lambda pr_url, repo, head_oid, delete_branch, merge_method: calls.update(
+            release_manager.gh_enqueue = lambda pr_url, repo, head_oid, delete_branch, merge_method, merge_queue=False: calls.update(
                 pr_url=pr_url,
                 repo=repo,
                 head_oid=head_oid,
                 delete_branch=delete_branch,
                 merge_method=merge_method,
+                merge_queue=merge_queue,
             )
             release_manager.create_comment = lambda *_args, **_kwargs: None
             release_manager.update_issue_state = lambda *_args, **_kwargs: None
@@ -175,6 +176,29 @@ class ReleaseManagerTests(unittest.TestCase):
             release_manager.gh_enqueue = original_enqueue
             release_manager.create_comment = original_comment
             release_manager.update_issue_state = original_update
+
+    def test_enqueue_drops_delete_branch_in_queue_mode(self):
+        # gh rejects --delete-branch when a merge queue is enabled; the lane must
+        # omit it in queue mode and keep it for the no-queue (merge_method) path.
+        original_run = release_manager.run
+        captured = {}
+
+        def fake_run(cmd, timeout=90):
+            captured["cmd"] = list(cmd)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        try:
+            release_manager.run = fake_run
+            release_manager.gh_enqueue(
+                "https://github.com/acme/repo/pull/1", "acme/repo", "abc", True, None, merge_queue=True
+            )
+            self.assertNotIn("--delete-branch", captured["cmd"])
+            release_manager.gh_enqueue(
+                "https://github.com/acme/repo/pull/1", "acme/repo", "abc", True, "squash", merge_queue=False
+            )
+            self.assertIn("--delete-branch", captured["cmd"])
+        finally:
+            release_manager.run = original_run
 
     def test_comment_mode_none_suppresses_linear_comment(self):
         original_view = release_manager.gh_pr_view

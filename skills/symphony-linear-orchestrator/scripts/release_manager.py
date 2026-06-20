@@ -27,7 +27,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -35,6 +35,10 @@ from urllib.parse import quote
 
 GRAPHQL_URL = "https://api.linear.app/graphql"
 PR_URL_RE = re.compile(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[0-9]+")
+# Linear's GitHub integration rewrites a pasted PR URL into an `owner/repo#N`
+# shorthand plus a linear.app review link, stripping the github.com URL the lane
+# keys on. This recovers the canonical PR URL from that shorthand.
+PR_SHORTHAND_RE = re.compile(r"\b([A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9._-]*)#([0-9]+)\b")
 OUTCOME_RE = re.compile(r"<!--\s*symphony-outcome(?P<body>.*?)-->", re.DOTALL | re.IGNORECASE)
 MERGE_QUEUE_MODE = "github-merge-queue"
 OWNER_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$")
@@ -59,6 +63,7 @@ class Issue:
     labels: list[str]
     comments: list[dict[str, str]]
     team_states: dict[str, str]
+    attachments: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -235,6 +240,7 @@ query ReleaseManagerIssues($projectSlug: String!, $stateNames: [String!]!) {
       state { name }
       labels { nodes { name } }
       comments(first: 50) { nodes { body createdAt } }
+      attachments(first: 50) { nodes { url } }
       team { states(first: 100) { nodes { id name } } }
     }
   }
@@ -254,6 +260,7 @@ query ReleaseManagerIssues($projectSlug: String!, $stateNames: [String!]!) {
                 labels=[label["name"] for label in node.get("labels", {}).get("nodes", [])],
                 comments=node.get("comments", {}).get("nodes", []),
                 team_states={state["name"]: state["id"] for state in node.get("team", {}).get("states", {}).get("nodes", [])},
+                attachments=[a.get("url") or "" for a in node.get("attachments", {}).get("nodes", [])],
             )
         )
     return issues
@@ -288,6 +295,17 @@ def extract_pr_urls(text: str) -> list[str]:
     return urls
 
 
+def shorthand_pr_urls(text: str) -> list[str]:
+    seen: set[str] = set()
+    urls = []
+    for match in PR_SHORTHAND_RE.finditer(text):
+        url = f"https://github.com/{match.group(1)}/pull/{match.group(2)}"
+        if url not in seen:
+            seen.add(url)
+            urls.append(url)
+    return urls
+
+
 def parse_outcome_values(text: str) -> dict[str, str]:
     values: dict[str, str] = {}
     for match in OUTCOME_RE.finditer(text):
@@ -311,11 +329,23 @@ def choose_pr_url(issue: Issue) -> str | None:
     for key in ["pr_url", "pull_request", "github_pr", "pr"]:
         value = outcome.get(key)
         if value:
-            urls = extract_pr_urls(value)
+            urls = extract_pr_urls(value) or shorthand_pr_urls(value)
             if urls:
                 return urls[-1]
+    # A literal github PR URL anywhere in the body/comments.
     urls = extract_pr_urls(text)
-    return urls[-1] if urls else None
+    if urls:
+        return urls[-1]
+    # When Linear is connected to GitHub it links the PR as an attachment whose URL
+    # is the canonical github link -- the reliable source once a body URL has been
+    # rewritten to a linear.app review link (which carries no github.com URL).
+    for attachment in issue.attachments:
+        found = extract_pr_urls(attachment)
+        if found:
+            return found[-1]
+    # Last resort: reconstruct from the `owner/repo#N` shorthand Linear leaves behind.
+    short = shorthand_pr_urls(text)
+    return short[-1] if short else None
 
 
 def labels_match(issue_labels: list[str], required: list[str]) -> bool:
@@ -613,13 +643,18 @@ def gh_enqueue(
     head_oid: str | None,
     delete_branch: bool,
     merge_method: str | None,
+    merge_queue: bool = False,
 ) -> None:
     cmd = ["gh", "pr", "merge", pr_url, "--auto"]
     if head_oid:
         cmd.extend(["--match-head-commit", head_oid])
     if merge_method:
         cmd.append(f"--{merge_method}")
-    if delete_branch:
+    # gh rejects `--delete-branch` when a merge queue is enabled ("Cannot use -d or
+    # --delete-branch when merge queue enabled") -- in queue mode branch deletion is
+    # governed by the repo's "Automatically delete head branches" setting, not this
+    # flag. Passing it would fail every enqueue, so only send it outside queue mode.
+    if delete_branch and not merge_queue:
         cmd.append("--delete-branch")
     if repo:
         cmd.extend(["--repo", repo])
@@ -759,7 +794,14 @@ def process_issue(args: argparse.Namespace, api_key: str, issue: Issue) -> Actio
     if not args.apply:
         return Action(issue.identifier, "would_queue", f"would run gh pr merge --auto; mergeStateStatus={merge_state}", pr_url, state)
     try:
-        gh_enqueue(pr_url, args.repo, pr.get("headRefOid"), args.delete_branch, args.merge_method)
+        gh_enqueue(
+            pr_url,
+            args.repo,
+            pr.get("headRefOid"),
+            args.delete_branch,
+            args.merge_method,
+            merge_queue=getattr(args, "mode", None) == MERGE_QUEUE_MODE,
+        )
     except Exception as exc:
         # A single failed enqueue (e.g. the head moved under us) must not crash
         # the whole burst. Surface it; the pass exit code reflects total breakage.
@@ -810,6 +852,22 @@ def self_test() -> int:
         "https://github.com/acme/private/pull/8",
     ]
     assert choose_pr_url(issue) == "https://github.com/acme/private/pull/8"
+    # Linear rewrites a pasted PR URL to an owner/repo#N shorthand plus a linear.app
+    # review link; the lane must still recover the canonical github URL.
+    assert shorthand_pr_urls("work on acme/private#42 now") == ["https://github.com/acme/private/pull/42"]
+    rewritten = Issue(
+        id="id2", identifier="TST-2", title="t", url="u",
+        description="pr_url: [acme/private#9](https://linear.app/x/review/abc)",
+        state="In Review", labels=["release:ready"], comments=[], team_states={},
+    )
+    assert choose_pr_url(rewritten) == "https://github.com/acme/private/pull/9"
+    # A connected Linear links the PR as an attachment carrying the github URL.
+    attached = Issue(
+        id="id3", identifier="TST-3", title="t", url="u",
+        description="no link in body", state="In Review", labels=["release:ready"],
+        comments=[], team_states={}, attachments=["https://github.com/acme/private/pull/11"],
+    )
+    assert choose_pr_url(attached) == "https://github.com/acme/private/pull/11"
     assert labels_match(issue.labels, ["release:ready"])
     assert not labels_match(issue.labels, ["release:missing"])
     assert parse_owner_repo("acme/private") == ("acme", "private")
@@ -841,6 +899,8 @@ def self_test() -> int:
                 "ok": True,
                 "checks": [
                     "pr_url_extraction",
+                    "pr_shorthand_recovery",
+                    "attachment_pr_url",
                     "outcome_precedence",
                     "label_filter",
                     "owner_repo_parsing",

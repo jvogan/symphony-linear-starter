@@ -38,7 +38,9 @@ reason it is simpler than the lane.
 2. **A merge queue** (recommended) so a burst batches instead of serializing --
    see [release-manager-lane.md](release-manager-lane.md), "Verify and enable
    GitHub Merge Queue". Without a queue this still works, but lands serially (one
-   CI cycle per PR).
+   CI cycle per PR). **If the queue has required checks on `merge_group`, also set
+   an `AUTOMERGE_PAT` secret** (see "Token cascade" in Caveats) or queued PRs never
+   merge.
 3. **A `release:ready` label** on the repo (this is a *GitHub PR label* here, not
    a Linear label -- a different thing from the lane's `release:ready`).
 4. **The merge method the sample uses must be enabled.** The sample runs
@@ -57,9 +59,15 @@ Then copy `assets/examples/auto-merge-on-label.yml` to
 - **Merge method must match repo settings.** The sample uses `--squash`; change
   it to a method your repo allows (`merge`, `squash`, or `rebase`). With a merge
   queue, the queue's configured method applies regardless.
-- **Token cascade.** Auto-merge enabled via the default `GITHUB_TOKEN` does not
-  raise events that trigger other workflows. The `merge_group` build is generated
-  by the queue itself, so CI still runs; but if you depend on the enqueue itself
-  triggering downstream workflows, use a PAT secret instead.
+- **Token cascade -- this one bites with a merge queue.** Events from the default
+  `GITHUB_TOKEN` do not cascade, so an enqueue done with `GITHUB_TOKEN` does **not**
+  trigger the queue's `merge_group` CI. If your queue has required checks that run
+  on `merge_group`, those checks never start and the PRs sit in the queue until it
+  times out -- they never merge. Enqueue with a **PAT** instead: set a
+  repo or fine-grained PAT secret with contents + pull-requests write named
+  `AUTOMERGE_PAT`, and the sample uses it automatically
+  (`secrets.AUTOMERGE_PAT || secrets.GITHUB_TOKEN`). Plain `GITHUB_TOKEN` is fine
+  only with no merge queue (the serial fallback), where there is no `merge_group`
+  CI to trigger.
 - **No closeout.** Nothing updates an external tracker. If you later adopt Linear,
   switch to the Release Manager lane for issue state and audit.

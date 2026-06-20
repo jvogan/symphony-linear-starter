@@ -23,6 +23,9 @@
 #        on:
 #          pull_request:
 #          merge_group:
+#      AND set a RELEASE_PAT secret (see the GH_TOKEN note in the job below): the
+#      merge_group check is itself a workflow, and an enqueue done with GITHUB_TOKEN
+#      will not trigger it -- so queued PRs would never merge.
 #
 # What it does: runs the single-writer Release Manager lane on a schedule (and
 # on demand), draining ready PRs through the merge queue and finalizing Linear,
@@ -56,12 +59,15 @@ jobs:
     timeout-minutes: 45  # hard ceiling so a stuck queue cannot run forever
     env:
       LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-      # gh reads GH_TOKEN. The default GITHUB_TOKEN can enable auto-merge and add
-      # to the queue. Caveat: events from GITHUB_TOKEN do not cascade to other
-      # workflows, but the merge_group build is queue-generated so CI still runs.
-      # If you need the enqueue itself to trigger other workflows, set a PAT
-      # secret (e.g. secrets.RELEASE_PAT) and use it here instead.
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # gh reads GH_TOKEN. IMPORTANT: if base_branch uses a merge queue whose
+      # required checks run on merge_group, you MUST enqueue with a PAT -- not
+      # GITHUB_TOKEN. Events from GITHUB_TOKEN do not cascade, so a token-driven
+      # enqueue never triggers the queue's merge_group CI and queued PRs sit until
+      # the queue times out. Set a repo or fine-grained PAT secret with
+      # contents + pull-requests write (named RELEASE_PAT below) and it is used
+      # automatically. Plain GITHUB_TOKEN is only safe with no merge queue (the
+      # serial auto-merge fallback), where there is no merge_group CI to trigger.
+      GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

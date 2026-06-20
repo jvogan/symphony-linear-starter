@@ -35,7 +35,7 @@ release_manager:
   blocked_state: Todo
   queued_state: Merging
   max_per_run: 10            # Fresh enqueues per pass; already-queued issues finalize outside this budget. A larger burst just needs another pass — re-run until "drained": true.
-  delete_branch: true
+  delete_branch: true       # Ignored in github-merge-queue mode (gh rejects --delete-branch under a queue; the repo's "Automatically delete head branches" setting governs it there). Applies only to the no-queue merge_method fallback.
   comment_mode: minimal
   lock_dir: ".orchestration/release-manager.lock"
 

@@ -171,7 +171,10 @@ class GithubNativeExampleTests(unittest.TestCase):
         self.assertIn("pull-requests: write", self.text)
 
     def test_secret_referenced_not_inlined(self):
-        self.assertIn("${{ secrets.GITHUB_TOKEN }}", self.text)
+        # The enqueue token is referenced via secrets (PAT preferred so the
+        # merge_group CI fires, GITHUB_TOKEN fallback), never inlined.
+        self.assertIn("secrets.AUTOMERGE_PAT", self.text)
+        self.assertIn("secrets.GITHUB_TOKEN", self.text)
         self.assertNotIn("ghp_", self.text)
         self.assertNotIn("github_pat_", self.text)
 
