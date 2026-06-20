@@ -224,6 +224,8 @@ Set `release_manager.comment_mode` to control Linear comments:
 
 `bootstrap.py --with-release-manager` renders a sample GitHub Actions workflow to `.orchestration/release-manager.gha.yml` that runs the drain loop for you on a schedule (and on demand) — so a burst lands without anyone running the command. It is a **sample**: GitHub only runs workflows from `.github/workflows/`, so nothing happens until you activate it.
 
+**This Action is the only place that needs a PAT.** It is one of two ways to run the lane; the other — driving `release_manager.py` from Symphony, your own infrastructure, or locally — uses your existing `gh` login, a real user token whose enqueues *do* trigger the queue's `merge_group` CI, so it needs no PAT. The token caveat below applies **only** inside GitHub Actions, where the only built-in credential is the non-cascading `GITHUB_TOKEN`.
+
 ```bash
 # 1. store the Linear key as an encrypted Actions secret (never inline it)
 gh secret set LINEAR_API_KEY --body "<your-linear-api-key>"
