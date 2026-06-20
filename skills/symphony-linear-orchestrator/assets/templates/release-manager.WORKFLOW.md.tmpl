@@ -1,0 +1,66 @@
+---
+tracker:
+  kind: linear
+  api_key: $LINEAR_API_KEY
+  project_slug: "__LINEAR_PROJECT_SLUG__"
+  issue_filters:
+    labels: ["__ISSUE_LABEL__", "release:ready"]
+  active_states:
+    - Ready to Merge
+    - In Review
+  terminal_states:
+    - Done
+    - Closed
+    - Cancelled
+    - Canceled
+    - Duplicate
+
+campaign:
+  mode: release-manager
+  routing_label: "__ISSUE_LABEL__"
+  trust: trusted-operators
+  integration_owner: release-manager
+
+release_manager:
+  mode: github-merge-queue
+  repo: "__GITHUB_REPO__"
+  base_branch: "__REQUIRED_BRANCH__"
+  # merge_method: squash   # Optional for repos without a GitHub Merge Queue.
+  ready_states: ["Ready to Merge", "In Review"]
+  ready_labels: ["release:ready"]
+  done_state: Done
+  blocked_state: Todo
+  queued_state: Merging
+  max_per_run: 5
+  delete_branch: true
+  comment_mode: minimal
+  lock_dir: ".orchestration/release-manager.lock"
+
+agent:
+  max_concurrent_agents: 1
+  max_turns: 10
+  auto_stop_when_idle: true
+  idle_grace_checks: 1
+
+codex:
+  command: 'CODEX_HOME="$SYMPHONY_CODEX_HOME" codex --model gpt-5.4-mini --config ''shell_environment_policy.include_only=["LINEAR_API_KEY"]'' --config model_reasoning_effort=medium app-server'
+  approval_policy: never
+  thread_sandbox: workspace-write
+---
+
+You are the Release Manager lane for this repository.
+
+## Required behavior
+
+- You are the only lane allowed to queue, merge, or deploy to `__REQUIRED_BRANCH__`.
+- Do not implement product changes.
+- Do not rebase or repair feature branches manually.
+- Process release-ready issues by running:
+
+```bash
+python3 skills/symphony-linear-orchestrator/scripts/release_manager.py --workflow .orchestration/release-manager.WORKFLOW.md --apply --json
+```
+
+- If a PR has conflicts or is closed without merge, leave the implementation issue in `Todo` or the configured blocked state so a normal worker can repair it.
+- Keep Linear comments concise. Use `release_manager.comment_mode: none` when the workflow should avoid release comments entirely.
+- Stop after one queue pass. The orchestrator or scheduler can run this lane again.

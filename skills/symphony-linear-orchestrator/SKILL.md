@@ -27,6 +27,7 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 9. Keep the workflow's `campaign` metadata aligned with the worker prompt: the default mode is `orchestrator-review`, workers move completed issues to `In Review`, and the orchestrator integrates before moving issues to `Done`.
 10. Treat `In Review` as the orchestrator gate. Review worker output, integrate the result, then move the issue to `Done`.
 11. After each execution wave, update `.orchestration/RUNBOOK.md` and `.orchestration/LEARNINGS.md`, then promote stable learnings into `AGENTS.md`, the issue template, or workflow defaults.
+12. Use the optional Release Manager lane only after workers reliably attach PR URLs and mark issues with `release:ready`. Keep it single-writer (`max_concurrent_agents: 1`) and dry-run it before using `--apply`.
 
 ## Safety defaults
 
@@ -34,6 +35,7 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 - Activate only the first execution wave. Fill worker slots only after the workflow, issue contract, and review loop are behaving predictably.
 - Do not auto-merge.
 - Do not default to snapshot promotion or automatic PR creation.
+- If enabling autonomous deploys, route them through the Release Manager lane; normal workers must not push, rebase, merge, or deploy `main`.
 - Do not introduce machine-specific background services into the target repo.
 - Do not inherit the whole shell environment by default. Use an explicit Codex environment allowlist and add variables only when the workflow requires them.
 - Do not put secrets, credentials, tokens, session cookies, personal data, or raw customer payloads into Linear issue bodies, workflow files, learnings, or worker comments.
@@ -47,6 +49,7 @@ Use this skill to onboard a repository for Symphony workers coordinated by an or
 - Read `references/orchestrator-model.md` when you need the operating model and role boundaries.
 - Read `references/linear-contract.md` before writing issue bodies or dependency chains.
 - Read `references/symphony-workflow.md` before rendering or editing a workflow.
+- Read `references/release-manager-lane.md` before enabling autonomous PR merge/deploy flow.
 - Read `references/repo-onboarding.md` when reviewing the target repo's `AGENTS.md` and local guidance.
 - Read `references/recovery-playbook.md` when a worker stalls, clones the wrong branch, or drifts from validation.
 - Read `references/self-improvement-loop.md` after each run when you need to convert operator observations into durable runbooks, learnings, and better defaults.

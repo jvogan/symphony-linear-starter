@@ -66,6 +66,7 @@ When multiple workflows share one Linear project, route them explicitly:
 - `sym:medium`
 - `sym:large`
 - `sym:content`
+- `release:ready` for issues whose PRs can be processed by the Release Manager lane
 
 Keep routing labels in Linear metadata rather than inventing a markdown section for them in the issue body.
 
@@ -88,4 +89,5 @@ Only trusted operators should be able to create or edit issues that match a rout
 - Keep `Touched Areas` specific enough to support parallel work without overlap.
 - Keep issue bodies free of secrets and personal data, even when copying stack traces or API examples.
 - Design dependencies so the orchestrator can keep the queue moving instead of waiting on one giant ticket.
+- For autonomous release flow, workers must attach a GitHub PR URL in their final `<!-- symphony-outcome -->` comment and use `release:ready`; they must not merge or deploy directly.
 - When the same issue-shaping mistake repeats, update `LINEAR_ISSUE_TEMPLATE.md` after the wave instead of fixing it one ticket at a time forever.

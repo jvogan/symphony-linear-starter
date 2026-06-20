@@ -21,6 +21,7 @@ PLACEHOLDER_PATTERNS = [
     r"__MAX_CONCURRENT_AGENTS__",
     r"__REQUIRED_BRANCH__",
     r"__REQUIRED_PATHS_JSON__",
+    r"__GITHUB_REPO__",
 ]
 SECRET_PATTERNS = [
     re.compile(r"api_key:\s*[\"']?(?!\$|\$\{)[A-Za-z0-9_\-]{12,}"),
@@ -149,18 +150,25 @@ def main() -> int:
         else:
             results.append(make_result("workflow_placeholders", "pass", "core placeholders resolved"))
 
-        missing_states = [state for state in REQUIRED_STATES if state not in workflow_text]
+        campaign_mode = extract_campaign_field(workflow_text, "mode")
+        release_manager_mode = campaign_mode == "release-manager"
+        required_states = ["Ready to Merge", "In Review", "Done"] if release_manager_mode else REQUIRED_STATES
+        missing_states = [state for state in required_states if state not in workflow_text]
         if missing_states:
             results.append(make_result("state_model", "fail", f"missing states: {', '.join(missing_states)}"))
         else:
             results.append(make_result("state_model", "pass", "required Linear state model present"))
 
-        if contains_all(workflow_text, "assertions:", "required_branch:", "required_paths:"):
+        if release_manager_mode:
+            results.append(make_result("workspace_assertions", "skip", "release-manager lane does not create code workspaces"))
+        elif contains_all(workflow_text, "assertions:", "required_branch:", "required_paths:"):
             results.append(make_result("workspace_assertions", "pass", "workspace bootstrap assertions are configured"))
         else:
             results.append(make_result("workspace_assertions", "fail", "workflow is missing workspace assertions for branch or repo anchors"))
 
-        if contains_all(workflow_text, "guardrails:", "no_progress:", "token_thresholds:", "minutes_thresholds:", "retry_limit:"):
+        if release_manager_mode:
+            results.append(make_result("no_progress_guardrail", "skip", "release-manager lane is a bounded queue pass"))
+        elif contains_all(workflow_text, "guardrails:", "no_progress:", "token_thresholds:", "minutes_thresholds:", "retry_limit:"):
             results.append(make_result("no_progress_guardrail", "pass", "workflow includes a no-progress guardrail block"))
         else:
             results.append(make_result("no_progress_guardrail", "fail", "workflow is missing a no-progress guardrail block"))
@@ -170,16 +178,15 @@ def main() -> int:
         routing_guard = bool(labels or assignee)
 
         if labels:
-            if all(label.startswith("sym:") for label in labels):
+            if all(label.startswith("sym:") or label.startswith("release:") for label in labels):
                 results.append(make_result("routing_labels", "pass", f"workflow routes only labels: {', '.join(labels)}"))
             else:
-                results.append(make_result("routing_labels", "warn", f"workflow label filters exist but are not all sym:* labels: {', '.join(labels)}"))
+                results.append(make_result("routing_labels", "warn", f"workflow label filters exist but are not all sym:* or release:* labels: {', '.join(labels)}"))
         elif assignee:
             results.append(make_result("routing_labels", "pass", f"workflow routes by assignee: {assignee}"))
         else:
             results.append(make_result("routing_labels", "warn", "workflow has no explicit label filters; this is acceptable only for a single-lane setup"))
 
-        campaign_mode = extract_campaign_field(workflow_text, "mode")
         campaign_label = extract_campaign_field(workflow_text, "routing_label")
         integration_owner = extract_campaign_field(workflow_text, "integration_owner")
         campaign_trust = extract_campaign_field(workflow_text, "trust")
@@ -239,7 +246,9 @@ def main() -> int:
             results.append(make_result("snapshot_promote_concurrency", "pass", "workflow does not use snapshot-promote"))
 
         prompt_mentions_review_gate = contains_all(workflow_text, "In Review", "not directly to `Done`")
-        if integration_owner == "orchestrator" and prompt_mentions_review_gate:
+        if release_manager_mode and integration_owner == "release-manager" and contains_all(workflow_text, "release_manager:", "only lane allowed"):
+            results.append(make_result("closeout_contract", "pass", "release-manager lane owns queueing and closeout"))
+        elif integration_owner == "orchestrator" and prompt_mentions_review_gate:
             results.append(make_result("closeout_contract", "pass", "worker prompt and campaign metadata both use an orchestrator review gate"))
         elif integration_owner and prompt_mentions_review_gate:
             results.append(make_result("closeout_contract", "warn", f"worker prompt uses In Review, but integration_owner is {integration_owner}"))
@@ -248,9 +257,22 @@ def main() -> int:
         else:
             results.append(make_result("closeout_contract", "skip", "skipped because campaign integration owner is missing"))
 
+        if release_manager_mode:
+            release_repo = extract_scalar(workflow_text, "repo")
+            if release_repo and "/" in release_repo:
+                results.append(make_result("release_manager_repo", "pass", f"release-manager repo is {release_repo}"))
+            else:
+                results.append(make_result("release_manager_repo", "fail", "release-manager lane must set release_manager.repo to OWNER/REPO"))
+            if contains_all(workflow_text, "ready_states:", "ready_labels:", "lock_dir:"):
+                results.append(make_result("release_manager_contract", "pass", "release-manager queue states, labels, and lock are configured"))
+            else:
+                results.append(make_result("release_manager_contract", "fail", "release-manager lane is missing ready_states, ready_labels, or lock_dir"))
+
         required_branch = extract_required_branch(workflow_text)
         repo_branch = current_branch(target_repo)
-        if required_branch and repo_branch:
+        if release_manager_mode:
+            results.append(make_result("required_branch", "skip", "release-manager lane uses release_manager.base_branch"))
+        elif required_branch and repo_branch:
             if required_branch == repo_branch:
                 results.append(make_result("required_branch", "pass", f"repo branch matches workflow assertion: {required_branch}"))
             else:
@@ -261,7 +283,9 @@ def main() -> int:
             results.append(make_result("required_branch", "fail", "workflow does not declare workspace.assertions.required_branch"))
 
         required_paths = extract_json_array(workflow_text, "required_paths")
-        if required_paths:
+        if release_manager_mode:
+            results.append(make_result("required_paths", "skip", "release-manager lane does not bootstrap code workspaces"))
+        elif required_paths:
             missing_paths = [path for path in required_paths if not (target_repo / path).exists()]
             if missing_paths:
                 results.append(make_result("required_paths", "fail", f"workflow anchor paths missing in target repo: {', '.join(missing_paths)}"))

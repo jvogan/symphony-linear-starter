@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -83,6 +84,18 @@ def infer_required_paths(target_repo: Path) -> list[str]:
     return anchors
 
 
+def infer_github_repo(clone_url: str) -> str:
+    candidates = [
+        r"github\.com[:/](?P<owner>[^/\s:]+)/(?P<repo>[^/\s]+?)(?:\.git)?$",
+        r"https://github\.com/(?P<owner>[^/\s]+)/(?P<repo>[^/\s]+?)(?:\.git)?$",
+    ]
+    for pattern in candidates:
+        match = re.search(pattern, clone_url)
+        if match:
+            return f"{match.group('owner')}/{match.group('repo')}"
+    return ""
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render starter orchestration artifacts into a target repo.")
     parser.add_argument("--target-repo", required=True, help="Path to the target repository.")
@@ -111,6 +124,8 @@ def main() -> int:
         default=[],
         help="Repo-root anchor path that must exist after workspace setup. Repeat to add more paths.",
     )
+    parser.add_argument("--with-release-manager", action="store_true", help="Also render a single-writer Release Manager lane template.")
+    parser.add_argument("--github-repo", help="GitHub repo in OWNER/REPO form for the Release Manager lane. Defaults to inferring from --clone-url.")
     parser.add_argument("--write", action="store_true", help="Write files instead of dry-running.")
     parser.add_argument("--force", action="store_true", help="Overwrite rendered files if they already exist.")
     args = parser.parse_args()
@@ -151,7 +166,12 @@ def main() -> int:
         "MAX_CONCURRENT_AGENTS": str(args.max_concurrent_agents),
         "REQUIRED_BRANCH": required_branch,
         "REQUIRED_PATHS_JSON": json.dumps(required_paths),
+        "GITHUB_REPO": args.github_repo or infer_github_repo(args.clone_url),
     }
+
+    if args.with_release_manager and not values["GITHUB_REPO"]:
+        print("--with-release-manager requires --github-repo when --clone-url is not a GitHub URL", file=sys.stderr)
+        return 1
 
     outputs = {
         orchestration_dir / f"{args.workflow_name}.WORKFLOW.md": TEMPLATE_DIR / "workflow.WORKFLOW.md.tmpl",
@@ -161,6 +181,8 @@ def main() -> int:
         orchestration_dir / "LINEAR_ISSUE_TEMPLATE.md": TEMPLATE_DIR / "linear-issue.md.tmpl",
         orchestration_dir / "AGENTS_ADDITIONS.md": TEMPLATE_DIR / "agents-additions.md.tmpl",
     }
+    if args.with_release_manager:
+        outputs[orchestration_dir / "release-manager.WORKFLOW.md"] = TEMPLATE_DIR / "release-manager.WORKFLOW.md.tmpl"
 
     manifest = []
     for destination, template_path in outputs.items():
@@ -183,6 +205,8 @@ def main() -> int:
                 "required_branch": required_branch,
                 "required_paths": required_paths,
                 "max_concurrent_agents": args.max_concurrent_agents,
+                "release_manager": args.with_release_manager,
+                "github_repo": values["GITHUB_REPO"] or None,
                 "files": manifest,
             },
             indent=2,

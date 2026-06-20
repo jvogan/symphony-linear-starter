@@ -5,6 +5,7 @@
 - **Orchestrator**: the human or interactive coding agent that inspects the repository, creates or updates guidance, shapes the plan, monitors progress, and reviews worker output.
 - **Symphony**: the scheduler and runtime that dispatches workers from a tracker-backed queue.
 - **Worker**: the isolated execution agent that works a single issue at a time.
+- **Release Manager**: the optional single-writer lane that queues ready PRs for merge/deploy after workers finish.
 - **Linear**: the source of truth for issue planning, dependencies, status, and handoff state.
 
 ## Why the orchestrator layer is separate from Symphony
@@ -41,6 +42,8 @@ Use this state model in Linear:
 - `Done`
 
 `In Review` is the default orchestrator review gate. Workers should move completed work there after validation and a final status comment. The orchestrator reads the output, integrates or rejects it, then decides whether the issue moves to `Done`, back to `Todo`, or to a blocked state.
+
+For autonomous release flow, add `Ready to Merge` or the `release:ready` label. Workers attach PR URLs and stop; the Release Manager lane queues PRs and closes merged issues.
 
 Treat the routed Linear project or label as a trusted execution queue. Issue titles, bodies, comments, labels, and blockers are worker input, so only trusted operators should be able to create or edit issues that match a Symphony workflow's routing filter.
 

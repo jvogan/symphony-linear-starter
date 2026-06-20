@@ -100,6 +100,20 @@ Do not default to automatic PR creation, snapshot promotion, or machine-specific
 
 If you later add snapshot promotion, keep it single-worker or prove that touched areas cannot overlap. A broad `rsync --delete` style promotion hook can delete another worker's output when concurrent workspaces diverge.
 
+## Release Manager lane
+
+Autonomous deploys should use a separate Release Manager lane, not normal implementation workers.
+
+The Release Manager lane is single-writer:
+
+- implementation workers open/update PRs and mark Linear issues with `release:ready`
+- implementation workers do not push, rebase, merge, or deploy `main`
+- the Release Manager scans ready Linear issues, extracts PR URLs, and queues them with `gh pr merge --auto`
+- conflicted or closed-unmerged PRs are returned to the worker queue for repair
+- merged PRs move their Linear issues to `Done`
+
+Use `assets/templates/release-manager.WORKFLOW.md.tmpl` and dry-run `scripts/release_manager.py` before enabling `--apply`. See `references/release-manager-lane.md` for the full contract.
+
 ## Pinned model guidance
 
 Pick a model deliberately and pin it in the workflow. Do not leave worker model selection implicit. The starter templates assume an explicit lane, but you should still adjust the pinned model, reasoning level, and concurrency to match the actual repo and cost tolerance.

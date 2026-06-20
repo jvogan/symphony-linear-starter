@@ -29,6 +29,14 @@ This runbook captures the current operator procedure for `__WORKFLOW_NAME__`.
 - clear or revise suppressions only after the ticket or workflow has materially changed
 - remove stale notes that no longer reflect reality
 
+## Release Manager lane
+
+- normal workers must not merge, rebase, push, or deploy `__REQUIRED_BRANCH__`
+- workers ready for autonomous release should attach a PR URL and add `release:ready`
+- dry-run first: `python3 skills/symphony-linear-orchestrator/scripts/release_manager.py --workflow .orchestration/release-manager.WORKFLOW.md --json`
+- apply only after dry-run output is sane: `python3 skills/symphony-linear-orchestrator/scripts/release_manager.py --workflow .orchestration/release-manager.WORKFLOW.md --apply --json`
+- conflicted or closed-unmerged PRs return to the worker queue for repair
+
 ## Repo-specific checks
 
 - add branch rules, release constraints, dashboards, or review cadence here
