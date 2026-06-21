@@ -1,7 +1,7 @@
 # Symphony + Linear Starter
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Agent Skill](https://img.shields.io/badge/Agent_Skill-v1.0.0-8A2BE2.svg)](#install)
+[![Agent Skill](https://img.shields.io/badge/Agent_Skill-v1.1.0-8A2BE2.svg)](#install)
 
 ![Symphony + Linear Orchestration Starter](assets/github/social-preview.png)
 
@@ -47,8 +47,13 @@ You install the skill, point it at a repo, and your agent gains a complete multi
                       v
                ┌─────────────┐
                │  Learnings  │  runbook + AGENTS.md get better
-               └─────────────┘
+               └──────┬──────┘
+                      │
+                      └─► next wave loops back to the Orchestrator
+                          (operator-driven, or the optional goal loop)
 ```
+
+Two optional lanes layer on top: a single-writer Release Manager that merges `release:ready` PRs, and an [autonomous goal loop](#autonomous-goal-loop-optional) (`goal_state.py`) that picks each next wave and stops on a budget cap or a stuck verdict.
 
 ## Prerequisites
 
